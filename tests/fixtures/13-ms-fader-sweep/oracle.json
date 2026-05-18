@@ -1,0 +1,14 @@
+{
+  "baseName": "13-ms-fader-sweep",
+  "frameCount": 7,
+  "totalBytes": 1393,
+  "capturedAt": "2026-05-18T21:13:13.816Z",
+  "oracle": {
+    "kind": "ms-sequence",
+    "notes": "MS frames captured during a 200ms linear fade on the target channel. Each frame contains fader positions for all channel types as u16 LE arrays.",
+    "targetChannel": {
+      "type": "LINE",
+      "channel": 1
+    }
+  }
+}

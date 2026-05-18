@@ -1,0 +1,14 @@
+{
+  "baseName": "03-handshake-zb-chunked",
+  "frameCount": 2,
+  "totalBytes": 24612,
+  "capturedAt": "2026-05-18T21:13:08.666Z",
+  "oracle": {
+    "kind": "chunked-zb-handshake",
+    "notes": "The ZB state snapshot arrived split across multiple CK frames. Concatenate the CK payloads (post-header), then handle as ZB.",
+    "frameCodes": [
+      "CK",
+      "CK"
+    ]
+  }
+}

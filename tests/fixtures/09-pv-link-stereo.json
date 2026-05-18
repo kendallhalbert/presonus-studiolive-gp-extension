@@ -1,0 +1,10 @@
+{
+  "name": "09-pv-link-stereo",
+  "byteLength": 32,
+  "capturedAt": "2026-05-18T21:13:11.450Z",
+  "oracle": {
+    "kind": "pv",
+    "key": "line/ch2/link",
+    "interpretation": "boolean (float 1.0/0.0)"
+  }
+}

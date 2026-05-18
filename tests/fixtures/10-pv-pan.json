@@ -1,0 +1,10 @@
+{
+  "name": "10-pv-pan",
+  "byteLength": 31,
+  "capturedAt": "2026-05-18T21:13:11.912Z",
+  "oracle": {
+    "kind": "pv",
+    "key": "line/ch1/pan",
+    "interpretation": "float (LE 4 bytes), 0..1 (0 = hard left, 0.5 = center, 1 = hard right). Mono channels use 'pan'; stereo-linked channels use 'stereopan'."
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "17-keepalive-fr-response",
+  "byteLength": 26,
+  "capturedAt": "2026-05-18T21:13:18.192Z",
+  "oracle": {
+    "kind": "keepalive-fd-response",
+    "notes": "FD response to the KeepAliveHelper's FR probe (key bytes 0x46 0x74 0x62 0x72 = 'Ftbr'). The id at offset 12 of the FD payload matches the id KeepAliveHelper sent."
+  }
+}

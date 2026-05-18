@@ -1,0 +1,10 @@
+{
+  "name": "08-pv-assign-aux",
+  "byteLength": 39,
+  "capturedAt": "2026-05-18T21:13:10.984Z",
+  "oracle": {
+    "kind": "pv",
+    "key": "line/ch1/assign_aux1",
+    "interpretation": "boolean; *inverted* semantics (true = sending; the JS Client.setMute inverts this before sending so getMute returns the user-facing 'muted' value)."
+  }
+}

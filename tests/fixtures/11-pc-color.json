@@ -1,0 +1,11 @@
+{
+  "name": "11-pc-color",
+  "byteLength": 33,
+  "capturedAt": "2026-05-18T21:13:12.377Z",
+  "oracle": {
+    "kind": "pc",
+    "key": "line/ch1/color",
+    "interpretation": "raw 4-byte RGBA; the JS transformer toHex's first 4 bytes.",
+    "restoredTo": {}
+  }
+}

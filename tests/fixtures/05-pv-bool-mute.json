@@ -1,0 +1,10 @@
+{
+  "name": "05-pv-bool-mute",
+  "byteLength": 32,
+  "capturedAt": "2026-05-18T21:13:09.534Z",
+  "oracle": {
+    "kind": "pv",
+    "key": "line/ch1/mute",
+    "interpretation": "boolean (4-byte float == 1.0 for true, 0.0 for false)"
+  }
+}

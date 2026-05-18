@@ -1,0 +1,13 @@
+{
+  "baseName": "16-fd-scenes-of-project",
+  "frameCount": 1,
+  "totalBytes": 1457,
+  "capturedAt": "2026-05-18T21:13:14.642Z",
+  "oracle": {
+    "kind": "fd-file-list",
+    "request": "List presets/proj/01.West End Girls.proj",
+    "notes": "FD response containing the scenes within the first project.",
+    "parsedSceneCount": 1,
+    "projectFileName": "01.West End Girls.proj"
+  }
+}

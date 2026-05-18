@@ -19,20 +19,21 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-13 | User installed **Visual Studio 2026 Community** (v18.6, not VS 2022 as originally locked in) with the "Desktop development with C++" workload. Bundled CMake 4.2.3 + Ninja confirmed available. Revised locked-in decisions accordingly. |
 | 2026-05-13 | Phase 0 delivered: sibling repo `presonus-studiolive-gp-extension` scaffolded, empty-DLL `PreSonusStudioLive.dll` built (configures, Debug-builds, sanity test green). Mixer-side load smoke test still owed by user. |
 | 2026-05-13 | **Bookmarked / paused by user.** New C++ repo is `git init`'d but uncommitted; JS-repo changes also uncommitted. See "Repo state at bookmark" below for the exact `git status` snapshot. |
+| 2026-05-18 | Phase 0 scaffold committed and pushed to `kendallhalbert/presonus-studiolive-gp-extension` on GitHub. CI workflow active. |
+| 2026-05-18 | Fixtures captured against **StudioLive 32R** (firmware **3.3.0.109659**, serial RA3E18090022) and committed to `tests/fixtures/` in the C++ repo. Four optional fixtures skipped (see below). |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-13 ~07:25 local (paused by user)**
+**Last updated: 2026-05-18 (fixtures captured)**
 
 ### TL;DR
 
-Phase 0 scaffold + empty DLL are done and verified locally on the dev box.
-Nothing is committed yet in the new C++ repo (it's `git init`'d with all
-files staged). Pick this up by either (a) doing the Gig Performer-side
-smoke test, (b) running the mixer capture session, or (c) telling the
-agent to commit the scaffold and start Phase 1's GP-bridge infrastructure.
+Phase 0 scaffold is committed and on GitHub. Wire-level fixtures from a real
+**StudioLive 32R** (firmware 3.3.0.109659) are in `tests/fixtures/`. Next up:
+(a) the Gig Performer-side smoke test (user-owed), then (b) GP-bridge
+infrastructure + Phase 1 protocol port (agent).
 
 ### What's done
 
@@ -47,6 +48,26 @@ agent to commit the scaffold and start Phase 1's GP-bridge infrastructure.
 | Fixed `pnpm-workspace.yaml` (`dtrace-provider` build silenced for Windows) | `pnpm-workspace.yaml` (JS repo)                       |
 | Visual Studio 2026 Community + "Desktop development with C++" workload installed (CMake 4.2.3 + Ninja bundled) | Local: `C:\Program Files\Microsoft Visual Studio\18\Community` |
 | **Phase 0 scaffold + empty DLL**: sibling repo created, `PreSonusStudioLive.dll` builds, `psl_Version()` registered, sanity GoogleTest green | `C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension` |
+| **GitHub remote + CI**: `kendallhalbert/presonus-studiolive-gp-extension`, `main` pushed, Actions workflow active | GitHub |
+| **Wire-level fixtures**: captured 2026-05-18 against StudioLive 32R (fw 3.3.0.109659); 44 files in `tests/fixtures/` | `tests/fixtures/` |
+
+### Fixture capture notes (2026-05-18)
+
+Captured with `npm run capture -- --host <ip> --channel 1 --channel-type LINE`.
+Host was passed explicitly, so discovery broadcast was not captured. ZB arrived
+chunked (`03-handshake-zb-chunked/`). The following fixtures were **skipped**
+(non-fatal; re-run or hand-craft later if needed):
+
+| Skipped fixture | Likely reason |
+| --------------- | ------------- |
+| `01-discovery-broadcast` | `--host` passed; discovery step not run |
+| `04-pv-float-volume` | Investigate if re-run needed |
+| `06-pv-aux-send-level` | Channel may not be routable to AUX 1 |
+| `18-meter-levl-frame` | Meter UDP frame not received in time |
+
+All other required fixtures present, including chunked ZB handshake, PV/PC/PS
+variants, MS fader sweep (7 frames), FD project/scene/preset lists, keepalive
+probe, `snapshot-state.json`, and `session.jsonl`.
 
 ### Repo state at bookmark
 
@@ -99,10 +120,8 @@ including `GPQueryLibrary`, `GPRegister`, and
 
 | Blocker                                                              | Owner | Notes                                                   |
 | -------------------------------------------------------------------- | ----- | ------------------------------------------------------- |
-| Initial commit of the new C++ repo                                   | User or agent (with explicit ask) | Repo is `git init`'d with everything `git add`-staged. Agent intentionally did not commit per the "no commits without explicit user ask" rule. One `git commit -m "Initial Phase 0 scaffold"` away. |
 | Phase 0 GP-side smoke test                                           | User  | Procedure below — verifies the DLL actually loads in GP (compile-clean ≠ load-clean). |
-| Mixer capture session not yet scheduled                              | User  | Produces the fixtures in `tools/out/fixtures/` that become the C++ test oracle for Phase 1. Procedure: `docs/CAPTURE_SESSION_RUNBOOK.md` in the JS repo. |
-| GitHub remote for new repo (optional)                                | User  | CI workflow `.github/workflows/ci.yml` is inert until pushed. `gh repo create` + `git push -u origin main` whenever convenient. |
+| Optional fixture re-capture (`01`, `04`, `06`, `18`)                 | User  | Four fixtures skipped on 2026-05-18 capture; non-fatal for starting Phase 1 but worth a targeted re-run before relying on those parsers in CI. |
 
 ### Phase 0 GP-side smoke test (the user-owed step)
 
@@ -151,10 +170,10 @@ culprits to check first:
 
 1. ~~**User**: install Visual Studio Community with the "Desktop development with C++" workload.~~ **Done 2026-05-13** — VS 2026 (v18.6) installed with bundled CMake 4.2.3 + Ninja.
 2. ~~**Agent**: scaffold the sibling repo + Phase 0 DLL.~~ **Done 2026-05-13** — see new repo at `C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension`.
-3. **User → Agent**: explicitly authorise the initial commit of the new C++ repo (`git commit -m "Initial Phase 0 scaffold"`). Optional but recommended before further work so the scaffold has a stable baseline.
+3. ~~**User → Agent**: explicitly authorise the initial commit of the new C++ repo.~~ **Done 2026-05-18** — `9b85664 Initial Phase 0 scaffold`, pushed to GitHub.
 4. **User**: do the Phase 0 GP-side smoke test above. Until it passes we don't know the DLL is loadable by GP, only that it compiles.
-5. **User**: schedule and run the mixer capture session per `docs/CAPTURE_SESSION_RUNBOOK.md` (~30 min including pre-flight). Output ends up in `tools/out/fixtures/`. Can happen before or after step 4 — independent.
-6. **Agent**: copy `tools/out/fixtures/` from the JS repo into `presonus-studiolive-gp-extension/tests/fixtures/` and commit.
+5. ~~**User**: schedule and run the mixer capture session.~~ **Done 2026-05-18** — StudioLive 32R, fw 3.3.0.109659. Four optional fixtures skipped.
+6. ~~**Agent**: copy fixtures into `tests/fixtures/` and commit.~~ **Done 2026-05-18**.
 7. **Agent**: implement the GP-bridge infrastructure (Logger, Dispatcher, ConfigStore, GpHost interface + RealGpHost + MockGpHost, GPScript stack ABI helpers, function registration table, input validation library, song↔scene binding state machine), all with GoogleTest coverage. Files will land under `extension/src/bridge/` (currently a `.gitkeep` placeholder).
 8. **Agent**: implement Phase 1 (protocol port: Ubjson, ZlibState, MessageProtocol, DataClient, KeepAlive, Client lifecycle), tested against the captured fixtures.
 9. Continue through Phases 2–5 per §5.

@@ -1,0 +1,10 @@
+{
+  "name": "07-pv-fx-send-level",
+  "byteLength": 31,
+  "capturedAt": "2026-05-18T21:13:10.505Z",
+  "oracle": {
+    "kind": "pv",
+    "key": "line/ch1/FXA",
+    "interpretation": "float (LE 4 bytes), 0..1; FX1=FXA, FX2=FXB, ... (0x40+n)."
+  }
+}

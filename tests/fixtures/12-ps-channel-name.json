@@ -1,0 +1,12 @@
+{
+  "name": "12-ps-channel-name",
+  "byteLength": 44,
+  "capturedAt": "2026-05-18T21:13:12.855Z",
+  "oracle": {
+    "kind": "ps",
+    "key": "line/ch1/username",
+    "interpretation": "ASCII string, length-prefixed (see PS handler).",
+    "setTo": "psl-capture",
+    "restoredTo": "Siku"
+  }
+}

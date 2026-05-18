@@ -1,0 +1,12 @@
+{
+  "baseName": "14-fd-projects-list",
+  "frameCount": 3,
+  "totalBytes": 6973,
+  "capturedAt": "2026-05-18T21:13:14.345Z",
+  "oracle": {
+    "kind": "fd-file-list",
+    "request": "List presets/proj",
+    "notes": "One or more FD frames whose payloads, once stripped of the 14-byte chunk header, reassemble into a JSON document containing { files: [{name, title, ...}, ...] }.",
+    "parsedFileCount": 2
+  }
+}
