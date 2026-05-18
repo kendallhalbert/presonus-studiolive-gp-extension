@@ -1,0 +1,5 @@
+# Matches the upstream gigperformer/gp-sdk style.
+# Keep these two in sync if the SDK file changes.
+BasedOnStyle: Microsoft
+
+IndentPPDirectives: BeforeHash

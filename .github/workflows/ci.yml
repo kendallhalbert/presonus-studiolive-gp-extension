@@ -1,0 +1,63 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel earlier in-flight runs for the same ref to save runner minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  #  Phase 0: configure + Debug build + run unit tests on a Windows runner.
+  #  Phase 1+ will add a Release build, ASan, coverage, clang-tidy, etc.
+  # ---------------------------------------------------------------------------
+  windows-debug:
+    name: windows / debug
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The GP SDK isn't on the runner; clone it next to our source tree and
+      # pass its path to CMake explicitly via -DGP_SDK_DIR=...
+      - name: Clone Gig Performer SDK
+        run: git clone --depth 1 https://github.com/gigperformer/gp-sdk ${{ github.workspace }}/.gp-sdk
+        shell: pwsh
+
+      - name: Configure
+        run: cmake -S . -B build -G "Ninja Multi-Config"
+             -DCMAKE_C_COMPILER=cl
+             -DCMAKE_CXX_COMPILER=cl
+             -DGP_SDK_DIR=${{ github.workspace }}/.gp-sdk
+             -DPSL_WARNINGS_AS_ERRORS=ON
+        shell: pwsh
+
+      - name: Build (Debug)
+        run: cmake --build build --config Debug --parallel
+        shell: pwsh
+
+      - name: Test (Debug)
+        run: ctest --test-dir build --build-config Debug --output-on-failure
+        shell: pwsh
+
+      - name: Stage DLL for upload
+        if: always()
+        run: |
+          New-Item -ItemType Directory -Path artifacts -Force | Out-Null
+          Copy-Item build\bin\Debug\PreSonusStudioLive.dll artifacts\
+        shell: pwsh
+
+      - name: Upload PreSonusStudioLive.dll (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PreSonusStudioLive-debug
+          path: artifacts/PreSonusStudioLive.dll
+          if-no-files-found: warn
+          retention-days: 14

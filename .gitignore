@@ -1,0 +1,44 @@
+# ---------------- compiler / build outputs ----------------
+build/
+out/
+cmake-build-*/
+*.obj
+*.o
+*.lib
+*.exp
+*.dll
+*.pdb
+*.ilk
+*.exe
+*.idb
+
+# ---------------- IDEs ----------------
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+CMakeUserPresets.json
+CMakeSettings.json
+
+# ---------------- CMake intermediates ----------------
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# ---------------- Test/coverage outputs ----------------
+Testing/
+coverage/
+*.gcov
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+CoverageReport/
+
+# ---------------- OS noise ----------------
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,45 @@
+/// \file  LibMain.h
+/// \brief Concrete GigPerformerAPI subclass for the PreSonus StudioLive
+///        extension.
+///
+/// Phase 0: the DLL only needs to be loadable by GP and expose a single
+/// GPScript function (`psl_Version`). Subsequent phases will expand this
+/// class to own the mixer Client, the Dispatcher, and the widget-binding
+/// registry — but only via composition over types declared in
+/// `extension/src/bridge/`. LibMain stays thin.
+
+#pragma once
+
+#include "gigperformer/sdk/GigPerformerAPI.h"
+
+namespace presonus::studiolive::gpext
+{
+
+class LibMain final : public gigperformer::sdk::GigPerformerAPI
+{
+  public:
+    explicit LibMain(LibraryHandle handle);
+    ~LibMain() override;
+
+    // ---- Mandatory ------------------------------------------------------
+    std::string GetProductDescription() override;
+
+    // ---- GP lifecycle ---------------------------------------------------
+    void Initialization() override;
+    void OnOpen() override;
+    void OnClose() override;
+
+    // ---- GPScript -------------------------------------------------------
+    // Note: GPScript_AllowedLocations and ExternalAPI_GPScriptFunctionDefinition
+    // are C types in the global namespace (declared inside extern "C" in
+    // gigperformer/sdk/types.h), not in `gigperformer::sdk`.
+    int RequestGPScriptFunctionSignatureList(
+        GPScript_AllowedLocations location,
+        ExternalAPI_GPScriptFunctionDefinition **list) override;
+
+  private:
+    LibMain(const LibMain &) = delete;
+    LibMain &operator=(const LibMain &) = delete;
+};
+
+} // namespace presonus::studiolive::gpext
