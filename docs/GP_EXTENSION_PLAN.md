@@ -21,19 +21,21 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-13 | **Bookmarked / paused by user.** New C++ repo is `git init`'d but uncommitted; JS-repo changes also uncommitted. See "Repo state at bookmark" below for the exact `git status` snapshot. |
 | 2026-05-18 | Phase 0 scaffold committed and pushed to `kendallhalbert/presonus-studiolive-gp-extension` on GitHub. CI workflow active. |
 | 2026-05-18 | Fixtures captured against **StudioLive 32R** (firmware **3.3.0.109659**, serial RA3E18090022) and committed to `tests/fixtures/` in the C++ repo. Four optional fixtures skipped (see below). |
+| 2026-05-18 | **Bookmarked / paused by user.** Capture session verified on-console (fader moved on mixer). GP smoke test and Phase 1 not started. See "Repo state at bookmark" below. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-18 (fixtures captured)**
+**Last updated: 2026-05-18 ~16:00 local (paused by user)**
 
 ### TL;DR
 
-Phase 0 scaffold is committed and on GitHub. Wire-level fixtures from a real
-**StudioLive 32R** (firmware 3.3.0.109659) are in `tests/fixtures/`. Next up:
-(a) the Gig Performer-side smoke test (user-owed), then (b) GP-bridge
-infrastructure + Phase 1 protocol port (agent).
+Phase 0 is done, on GitHub, and fixtures are committed. Mixer capture succeeded
+on a **StudioLive 32R** — user confirmed the fader moved on the console.
+**Next when resuming:** (a) GP-side smoke test (user), then (b) GP-bridge
+infrastructure + Phase 1 protocol port (agent). JS repo stays local-only (do
+not push).
 
 ### What's done
 
@@ -53,15 +55,19 @@ infrastructure + Phase 1 protocol port (agent).
 
 ### Fixture capture notes (2026-05-18)
 
-Captured with `npm run capture -- --host <ip> --channel 1 --channel-type LINE`.
+Captured with `npm run capture -- --host <ip> --channel 1 --channel-type LINE`
+(JS repo; use `npm` not `pnpm` — Node v16 on dev box, pnpm 11 not usable).
 Host was passed explicitly, so discovery broadcast was not captured. ZB arrived
-chunked (`03-handshake-zb-chunked/`). The following fixtures were **skipped**
-(non-fatal; re-run or hand-craft later if needed):
+chunked (`03-handshake-zb-chunked/`). User **confirmed fader movement on the
+mixer surface** during capture.
 
-| Skipped fixture | Likely reason |
-| --------------- | ------------- |
+The following fixtures were **skipped** (non-fatal; re-run or hand-craft later
+if needed):
+
+| Skipped fixture | Reason |
+| --------------- | ------ |
 | `01-discovery-broadcast` | `--host` passed; discovery step not run |
-| `04-pv-float-volume` | Investigate if re-run needed |
+| `04-pv-float-volume` | 32R does not echo volume as **incoming** `PV`; fader changes appear as **outgoing** `PV` + incoming **`MS`** frames. Use `13-ms-fader-sweep/` as the volume/fader oracle instead. |
 | `06-pv-aux-send-level` | Channel may not be routable to AUX 1 |
 | `18-meter-levl-frame` | Meter UDP frame not received in time |
 
@@ -71,57 +77,49 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 
 ### Repo state at bookmark
 
-**JS repo** (`presonus-studiolive-api`) — uncommitted local changes:
+**C++ repo** (`presonus-studiolive-gp-extension`) — clean, synced with GitHub:
 
 ```
- M package.json                    # added `capture`, `capture:dry`, `capture:check` scripts
-?? docs/CAPTURE_SESSION_RUNBOOK.md
-?? docs/GP_EXTENSION_PLAN.md
-?? pnpm-workspace.yaml             # `dtrace-provider` build silenced for Windows
-?? tools/.gitignore                # ignores `tools/out/`
-?? tools/capture-fixtures.ts
-?? tools/tsconfig.check.json
+Branch:  main (tracks origin/main)
+Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
+
+9b85664 Initial Phase 0 scaffold
+b817896 Add wire-level fixtures captured 2026-05-18
 ```
 
-**New C++ repo** (`presonus-studiolive-gp-extension`) — `git init -b main`
-done, **no commits yet**, all 16 files staged:
-
-```
-.clang-format
-.editorconfig
-.github/workflows/ci.yml
-.gitignore
-CMakeLists.txt
-LICENSE
-README.md
-cmake/.gitkeep
-docs/GP_EXTENSION_PLAN.md
-extension/CMakeLists.txt
-extension/src/LibMain.cpp
-extension/src/LibMain.h
-extension/src/Version.h
-extension/src/bridge/.gitkeep
-tests/CMakeLists.txt
-tests/unit/test_sanity.cpp
-```
-
-Build output lives under `build/` (gitignored). A clean Debug DLL was
-produced at:
+Build output lives under `build/` (gitignored). Last known good Debug DLL:
 
 ```
 C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension\build\bin\Debug\PreSonusStudioLive.dll
 ```
 
-The DLL exports all 30 GP entry points (verified with `dumpbin /EXPORTS`)
-including `GPQueryLibrary`, `GPRegister`, and
-`RequestGPScriptFunctionSignatureList`. Two sanity tests pass.
+**JS repo** (`presonus-studiolive-api`) — local commit, **do not push** (user
+decision). One commit ahead of `origin/master`:
+
+```
+b1596fb Add Phase 0 prep for GP extension port   (local only)
+?? package-lock.json                             (from npm install during capture; uncommitted)
+```
+
+Capture output remains at `tools/out/fixtures/` in the JS repo (gitignored).
+Canonical copy is `tests/fixtures/` in the C++ repo (committed).
+
+### Tooling notes at bookmark
+
+| Tool | Status |
+| ---- | ------ |
+| Visual Studio 2026 + CMake 4.2.3 + Ninja | Installed |
+| GitHub CLI (`gh`) v2.92.0 | Installed; authenticated as `kendallhalbert` |
+| Node.js | v16.14.0 on PATH — **too old for pnpm 11**; use `npm run capture*` in JS repo |
+| Git author | Not configured globally; commits use transient `-c user.name/email` unless user sets config |
 
 ### What's blocked
 
 | Blocker                                                              | Owner | Notes                                                   |
 | -------------------------------------------------------------------- | ----- | ------------------------------------------------------- |
 | Phase 0 GP-side smoke test                                           | User  | Procedure below — verifies the DLL actually loads in GP (compile-clean ≠ load-clean). |
-| Optional fixture re-capture (`01`, `04`, `06`, `18`)                 | User  | Four fixtures skipped on 2026-05-18 capture; non-fatal for starting Phase 1 but worth a targeted re-run before relying on those parsers in CI. |
+| Optional fixture re-capture (`01`, `06`, `18`)                 | User  | Low priority. `04` covered by `13-ms-fader-sweep/` on 32R. |
+| GP-bridge infrastructure + Phase 1 protocol port               | Agent | Unblocked; start when user resumes. Can proceed in parallel with GP smoke test. |
 
 ### Phase 0 GP-side smoke test (the user-owed step)
 
