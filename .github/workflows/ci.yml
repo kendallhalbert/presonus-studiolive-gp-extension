@@ -14,8 +14,8 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------------------
-  #  Phase 0: configure + Debug build + run unit tests on a Windows runner.
-  #  Phase 1+ will add a Release build, ASan, coverage, clang-tidy, etc.
+  #  Phase 0+: configure + Debug build + run unit tests on a Windows runner.
+  #  Requires MSVC on PATH (Ninja Multi-Config + cl).
   # ---------------------------------------------------------------------------
   windows-debug:
     name: windows / debug
@@ -23,6 +23,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Ninja Multi-Config needs cl/link/lib on PATH; default GHA shell does not
+      # load the Visual Studio developer environment.
+      - name: Setup MSVC toolchain
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
       # The GP SDK isn't on the runner; clone it next to our source tree and
       # pass its path to CMake explicitly via -DGP_SDK_DIR=...
@@ -32,11 +39,10 @@ jobs:
         shell: pwsh
 
       - name: Configure
-        run: cmake -S . -B build -G "Ninja Multi-Config"
-             -DCMAKE_C_COMPILER=cl
-             -DCMAKE_CXX_COMPILER=cl
-             -DGP_SDK_DIR=${{ github.workspace }}/.gp-sdk
-             -DPSL_WARNINGS_AS_ERRORS=ON
+        run: |
+          cmake -S . -B build -G "Ninja Multi-Config" `
+            -DGP_SDK_DIR="${{ github.workspace }}/.gp-sdk" `
+            -DPSL_WARNINGS_AS_ERRORS=ON
         shell: pwsh
 
       - name: Build (Debug)
@@ -44,21 +50,20 @@ jobs:
         shell: pwsh
 
       - name: Test (Debug)
-        run: ctest --test-dir build --build-config Debug --output-on-failure
+        run: ctest --test-dir build --config Debug --output-on-failure
         shell: pwsh
 
       - name: Stage DLL for upload
-        if: always()
+        if: success()
         run: |
           New-Item -ItemType Directory -Path artifacts -Force | Out-Null
-          Copy-Item build\bin\Debug\PreSonusStudioLive.dll artifacts\
+          Copy-Item build/bin/Debug/PreSonusStudioLive.dll artifacts/
         shell: pwsh
 
       - name: Upload PreSonusStudioLive.dll (debug)
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: PreSonusStudioLive-debug
           path: artifacts/PreSonusStudioLive.dll
-          if-no-files-found: warn
           retention-days: 14
