@@ -106,7 +106,7 @@ bool MixerService::connect(const std::string &host, std::uint16_t port)
         connection_ = std::make_unique<protocol::MixerConnection>(std::move(transport));
         connected_ = connection_->connect(host, port);
         ok.store(connected_.load());
-        if (connected_)
+        if (connected_.load())
         {
             logger_.info("Mixer connected to " + host);
         }

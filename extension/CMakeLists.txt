@@ -14,7 +14,10 @@ set(SKIP_INSTALL_ALL ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(zlib)
 
 add_library(psl_bridge STATIC
+  src/bridge/AppPaths.cpp
   src/bridge/Logger.cpp
+  src/bridge/FileLogSink.cpp
+  src/bridge/LogLevelUtil.cpp
   src/bridge/Dispatcher.cpp
   src/bridge/RealGpHost.cpp
   src/bridge/ExtensionContext.cpp

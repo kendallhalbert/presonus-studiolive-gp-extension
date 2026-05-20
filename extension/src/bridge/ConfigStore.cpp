@@ -1,25 +1,12 @@
 #include "bridge/ConfigStore.h"
 
-#include <cstdlib>
+#include "bridge/AppPaths.h"
+
 #include <fstream>
 #include <sstream>
 
 namespace presonus::studiolive::gpext::bridge
 {
-
-namespace
-{
-
-std::filesystem::path appDataDirectory()
-{
-    if (const char *appdata = std::getenv("APPDATA"))
-    {
-        return std::filesystem::path(appdata) / "PreSonusStudioLive";
-    }
-    return std::filesystem::temp_directory_path() / "PreSonusStudioLive";
-}
-
-} // namespace
 
 std::filesystem::path ConfigStore::configFilePath()
 {

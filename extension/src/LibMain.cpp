@@ -87,16 +87,18 @@ void LibMain::Initialization()
 
     gpHost_ = std::make_unique<bridge::RealGpHost>(handle_);
 
-    logger_.setSink([this](bridge::LogLevel /*level*/, std::string_view message) {
+    fileLog_ = std::make_unique<bridge::FileLogSink>();
+    fileLog_->writeSessionBanner(versionString());
 
-        if (gpHost_ != nullptr)
-
+    logger_.setSink([this](bridge::LogLevel level, std::string_view message) {
+        if (fileLog_ != nullptr)
         {
-
-            gpHost_->consoleLog(std::string(message));
-
+            fileLog_->write(level, message);
         }
-
+        if (gpHost_ != nullptr)
+        {
+            gpHost_->consoleLog(std::string(message));
+        }
     });
 
 

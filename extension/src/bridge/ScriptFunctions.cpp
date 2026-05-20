@@ -2,12 +2,15 @@
 
 #include "bridge/ConfigStore.h"
 #include "bridge/ExtensionContext.h"
+#include "bridge/FileLogSink.h"
+#include "bridge/LogLevelUtil.h"
 #include "mixer/MixerService.h"
 #include "Version.h"
 
 #include "gigperformer/sdk/imports.h"
 
 #include <string>
+#include <string_view>
 
 namespace presonus::studiolive::gpext::bridge
 {
@@ -82,6 +85,39 @@ extern "C" void psl_IsConnected(GPRuntimeEngine *vm)
     GP_VM_PushBoolean(vm, ok);
 }
 
+extern "C" void psl_SetLogLevel(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    char levelBuffer[32] = {};
+    GP_VM_PopString(vm, levelBuffer, static_cast<int>(sizeof(levelBuffer)));
+
+    ExtensionContext *const ctx = ExtensionContext::instance();
+    if (!ctx)
+    {
+        GP_VM_PushBoolean(vm, false);
+        return;
+    }
+
+    const auto level = parseLogLevel(levelBuffer);
+    if (!level)
+    {
+        GP_VM_PushBoolean(vm, false);
+        return;
+    }
+
+    ctx->logger().setMinLevel(*level);
+    ctx->logger().info(std::string("Log level set to ") + levelBuffer);
+    GP_VM_PushBoolean(vm, true);
+}
+
+extern "C" void psl_LogFilePath(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    const std::string path = bridge::FileLogSink::defaultLogPath().string();
+    GP_VM_PushString(vm, path.c_str());
+}
+
 extern "C" void psl_SetLineMute(GPRuntimeEngine *vm)
 {
     drainIfOnGpThread();
@@ -130,6 +166,20 @@ ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
         "Returns Boolean",
         "Mute (muted=1) or unmute (muted=0) a 1-based input channel.",
         &psl_SetLineMute,
+    },
+    {
+        "SetLogLevel",
+        "level : String",
+        "Returns Boolean",
+        "Set minimum log level: none, error, warn, info, or debug.",
+        &psl_SetLogLevel,
+    },
+    {
+        "LogFilePath",
+        "",
+        "Returns String",
+        "Returns the path to extension.log under %APPDATA%\\PreSonusStudioLive.",
+        &psl_LogFilePath,
     },
 };
 
