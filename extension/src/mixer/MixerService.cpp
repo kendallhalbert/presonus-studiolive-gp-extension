@@ -1,6 +1,8 @@
 #include "mixer/MixerService.h"
 
+#include "protocol/ConnectionHandshake.h"
 #include "protocol/FileRequest.h"
+#include "protocol/JmPacket.h"
 #include "protocol/MixerConnection.h"
 #include "protocol/PvEncoder.h"
 #include "transport/WinSockTransport.h"
@@ -101,23 +103,68 @@ bool MixerService::connect(const std::string &host, std::uint16_t port)
     ensureThread();
 
     std::atomic<bool> ok{false};
-    enqueue([this, host, port, &ok]() {
+    std::atomic<bool> done{false};
+    enqueue([this, host, port, &ok, &done]() {
         auto transport = std::make_unique<transport::WinSockTransport>();
         connection_ = std::make_unique<protocol::MixerConnection>(std::move(transport));
-        connected_ = connection_->connect(host, port);
-        ok.store(connected_.load());
-        if (connected_.load())
+        connected_ = false;
+
+        if (!connection_->connect(host, port))
         {
-            logger_.info("Mixer connected to " + host);
-        }
-        else
-        {
-            logger_.warn("Mixer connect failed: " + host);
+            logger_.warn("Mixer TCP connect failed: " + host);
             connection_.reset();
+            ok.store(false);
+            done.store(true);
+            return;
         }
+
+        protocol::ConnectionHandshake handshake;
+        connection_->setSessionPacketCallback(
+            [&handshake](const protocol::SessionPacket &packet) {
+                handshake.onSessionPacket(packet);
+            });
+        connection_->setJsonMessageCallback([&handshake](std::string_view json) {
+            handshake.onJmJson(json);
+        });
+        connection_->setKeepAliveEnabled(false);
+
+        if (!connection_->sendRaw(protocol::createSubscribePacket()))
+        {
+            logger_.warn("Mixer subscribe send failed: " + host);
+            connection_->close();
+            connection_.reset();
+            ok.store(false);
+            done.store(true);
+            return;
+        }
+
+        const auto deadline =
+            std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        while (!handshake.progress().complete() &&
+               std::chrono::steady_clock::now() < deadline)
+        {
+            connection_->poll();
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+
+        if (!handshake.progress().complete())
+        {
+            logger_.warn("Mixer handshake timed out: " + host);
+            connection_->close();
+            connection_.reset();
+            ok.store(false);
+            done.store(true);
+            return;
+        }
+
+        connection_->setKeepAliveEnabled(true);
+        connected_ = true;
+        logger_.info("Mixer connected to " + host);
+        ok.store(true);
+        done.store(true);
     });
 
-    for (int i = 0; i < 100 && !ok.load(); ++i)
+    for (int i = 0; i < 3500 && !done.load(); ++i)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }

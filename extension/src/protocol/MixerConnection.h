@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace presonus::studiolive::gpext::protocol
@@ -29,6 +30,7 @@ class MixerConnection
 {
   public:
     using SessionPacketCallback = std::function<void(SessionPacket packet)>;
+    using JsonMessageCallback = std::function<void(std::string_view json)>;
     using FdListCallback = std::function<void(FdListResult result)>;
     using TimeoutCallback = std::function<void()>;
 
@@ -39,8 +41,12 @@ class MixerConnection
     bool isConnected() const;
 
     void setSessionPacketCallback(SessionPacketCallback callback);
+    void setJsonMessageCallback(JsonMessageCallback callback);
     void setFdListCallback(FdListCallback callback);
     void setTimeoutCallback(TimeoutCallback callback);
+
+    /// Keepalive KA/FR probes are off until handshake completes.
+    void setKeepAliveEnabled(bool enabled);
 
     bool sendRaw(std::vector<std::uint8_t> packet);
 
@@ -57,7 +63,9 @@ class MixerConnection
     KeepAlive keepAlive_;
 
     SessionPacketCallback onSessionPacket_;
+    JsonMessageCallback onJsonMessage_;
     FdListCallback onFdList_;
+    bool keepAliveEnabled_ = false;
 };
 
 } // namespace presonus::studiolive::gpext::protocol

@@ -1,5 +1,7 @@
 #include "protocol/MixerConnection.h"
 
+#include "protocol/JmPacket.h"
+
 namespace presonus::studiolive::gpext::protocol
 {
 
@@ -20,6 +22,18 @@ MixerConnection::MixerConnection(std::unique_ptr<transport::Transport> transport
           const auto wire = analysePacket(packet);
           if (!wire)
           {
+              return;
+          }
+
+          if (wire->messageCode == "JM")
+          {
+              if (const auto json = extractJmJson(wire->payload))
+              {
+                  if (onJsonMessage_)
+                  {
+                      onJsonMessage_(*json);
+                  }
+              }
               return;
           }
 
@@ -60,6 +74,7 @@ MixerConnection::MixerConnection(std::unique_ptr<transport::Transport> transport
 bool MixerConnection::connect(const std::string &host, std::uint16_t port)
 {
     keepAlive_.reset();
+    keepAliveEnabled_ = false;
     sessionDecoder_.reset();
     fdAssembler_.reset();
     return transport_->connect(host, port);
@@ -79,6 +94,20 @@ bool MixerConnection::isConnected() const
 void MixerConnection::setSessionPacketCallback(SessionPacketCallback callback)
 {
     onSessionPacket_ = std::move(callback);
+}
+
+void MixerConnection::setJsonMessageCallback(JsonMessageCallback callback)
+{
+    onJsonMessage_ = std::move(callback);
+}
+
+void MixerConnection::setKeepAliveEnabled(bool enabled)
+{
+    keepAliveEnabled_ = enabled;
+    if (!enabled)
+    {
+        keepAlive_.reset();
+    }
 }
 
 void MixerConnection::setFdListCallback(FdListCallback callback)
@@ -109,7 +138,10 @@ bool MixerConnection::sendRaw(std::vector<std::uint8_t> packet)
 void MixerConnection::poll(const std::chrono::steady_clock::time_point now)
 {
     transport_->pollInbound();
-    keepAlive_.poll(now);
+    if (keepAliveEnabled_)
+    {
+        keepAlive_.poll(now);
+    }
 }
 
 } // namespace presonus::studiolive::gpext::protocol

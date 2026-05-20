@@ -46,6 +46,8 @@ add_library(psl_protocol STATIC
   src/protocol/FdAssembler.cpp
   src/protocol/FdParser.cpp
   src/protocol/KeepAlive.cpp
+  src/protocol/JmPacket.cpp
+  src/protocol/ConnectionHandshake.cpp
   src/protocol/MixerConnection.cpp
   src/transport/ScriptedTransport.cpp
   src/transport/WinSockTransport.cpp)
