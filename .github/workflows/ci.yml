@@ -50,7 +50,7 @@ jobs:
         shell: pwsh
 
       - name: Test (Debug)
-        run: ctest --test-dir build --config Debug --output-on-failure
+        run: ctest --test-dir build -C Debug --output-on-failure
         shell: pwsh
 
       - name: Stage DLL for upload
