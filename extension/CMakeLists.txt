@@ -49,6 +49,7 @@ add_library(psl_protocol STATIC
   src/protocol/JmPacket.cpp
   src/protocol/ConnectionHandshake.cpp
   src/protocol/MixerConnection.cpp
+  src/state/KvCache.cpp
   src/transport/ScriptedTransport.cpp
   src/transport/WinSockTransport.cpp)
 

@@ -9,6 +9,7 @@
 
 #include "gigperformer/sdk/imports.h"
 
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -131,6 +132,18 @@ extern "C" void psl_SetLineMute(GPRuntimeEngine *vm)
     GP_VM_PushBoolean(vm, ok);
 }
 
+extern "C" void psl_GetLineMute(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    const int channel = GP_VM_PopInteger(vm);
+
+    mixer::MixerService *const svc = mixer();
+    const std::optional<bool> muted =
+        svc != nullptr ? svc->getLineMute(channel) : std::nullopt;
+    GP_VM_PushBoolean(vm, muted.value_or(false));
+}
+
 ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
     {
         "Version",
@@ -166,6 +179,13 @@ ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
         "Returns Boolean",
         "Mute (muted=1) or unmute (muted=0) a 1-based input channel.",
         &psl_SetLineMute,
+    },
+    {
+        "GetLineMute",
+        "channel : Integer",
+        "Returns Boolean",
+        "Returns cached mute state for a 1-based input channel (false if unknown).",
+        &psl_GetLineMute,
     },
     {
         "SetLogLevel",

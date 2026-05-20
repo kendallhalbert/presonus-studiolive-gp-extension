@@ -118,10 +118,13 @@ bool MixerService::connect(const std::string &host, std::uint16_t port)
             return;
         }
 
+        stateCache_.clear();
+
         protocol::ConnectionHandshake handshake;
         connection_->setSessionPacketCallback(
-            [&handshake](const protocol::SessionPacket &packet) {
+            [&handshake, this](const protocol::SessionPacket &packet) {
                 handshake.onSessionPacket(packet);
+                stateCache_.apply(packet);
             });
         connection_->setJsonMessageCallback([&handshake](std::string_view json) {
             handshake.onJmJson(json);
@@ -180,6 +183,7 @@ void MixerService::disconnect()
             connection_.reset();
         }
         connected_ = false;
+        stateCache_.clear();
         logger_.info("Mixer disconnected");
     });
 }
@@ -197,6 +201,7 @@ bool MixerService::setLineMute(int channel, bool muted)
     }
 
     const auto key = protocol::lineChannelMuteKey(channel);
+    stateCache_.setBool(key, muted);
     const auto packet = protocol::createPvBoolPacket(key, muted);
     enqueue([this, packet = std::move(packet)]() {
         if (connection_)
@@ -205,6 +210,15 @@ bool MixerService::setLineMute(int channel, bool muted)
         }
     });
     return true;
+}
+
+std::optional<bool> MixerService::getLineMute(int channel) const
+{
+    if (channel < 1)
+    {
+        return std::nullopt;
+    }
+    return stateCache_.boolKey(protocol::lineChannelMuteKey(channel));
 }
 
 bool MixerService::requestFileList(const std::string &path)

@@ -35,23 +35,23 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-20 | File logging (`extension.log`), `SetLogLevel` / `LogFilePath`; **31 tests** green (`f1d048e`). |
 | 2026-05-20 | UCNet handshake on connect (JM Subscribe, ZB + `SubscriptionReply`, gated keepalive); **36 tests** green (`0d4a79b`). |
 | 2026-05-20 | **Hardware smoke test passed** on **StudioLive 32R** @ `10.0.0.14` — line 1 mute from GPScript moves desk. See `docs/HARDWARE_SMOKE_TEST.md`. |
+| 2026-05-20 | Phase 2: `KvCache` (PV/PS/PC/MS + ZB flatten), `GetLineMute`, optimistic mute cache; **41 tests** green. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-20 (Phase 2 — handshake + 32R mute confirmed)**
+**Last updated: 2026-05-20 (Phase 2 — state cache + GetLineMute)**
 
 ### TL;DR
 
 Phase 0 **complete** on GP 5 Pro. Phase 1 wire + TCP session layer **done**.
-**Phase 2 in progress:** UCNet **handshake wired into `Connect`**, outgoing PV
-mute, `MixerService` IO thread, file log under `%APPDATA%\PreSonusStudioLive\`.
-GPScript: `PreSonusStudioLive_Connect` / `SetLineMute` / `IsConnected` /
-`Disconnect` / `SetLogLevel` / `LogFilePath` — **36 tests** green.
-**Hardware verified:** 32R @ `10.0.0.14`, input 1 mute toggles on desk.
-**Next:** state cache + getters (`GetLineMute`, levels), more commands (solo,
-fader), UDP discovery (Phase 4).
+**Phase 2 in progress:** UCNet handshake, `KvCache` on incoming PV/PS/PC/MS/ZB,
+outgoing PV mute, `GetLineMute` / `SetLineMute`, `MixerService` IO thread, file
+log under `%APPDATA%\PreSonusStudioLive\`. GPScript adds **`GetLineMute`**.
+**41 tests** green. **Hardware verified:** 32R @ `10.0.0.14`, input 1 mute
+toggles on desk.
+**Next:** `GetLineLevel` / `SetLineLevel`, solo, pan; UDP discovery (Phase 4).
 
 ### What's done
 
@@ -71,7 +71,7 @@ fader), UDP discovery (Phase 4).
 | **Wire-level fixtures** | `tests/fixtures/` — StudioLive 32R, fw 3.3.0.109659; `04-jm-subscription-reply/` added for handshake tests |
 | **GP-bridge** | `extension/src/bridge/` — Logger, FileLogSink, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore, AppPaths |
 | **Phase 1** | `extension/src/protocol/` + `extension/src/transport/` — parsers, `MixerConnection`, `KeepAlive`, `FdAssembler`, `JmPacket`, `ConnectionHandshake` |
-| **Phase 2 (slice)** | `MixerService` IO thread, handshake on connect, PV mute encode, GPScript connect/mute/log APIs |
+| **Phase 2 (slice)** | `KvCache`, `MixerService` IO thread, handshake, PV mute get/set, GPScript connect/mute/log APIs |
 | **Hardware smoke test** | **Passed 2026-05-20** — see `docs/HARDWARE_SMOKE_TEST.md` |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
@@ -198,8 +198,7 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
-| KVTree / state cache | Agent | Incoming PV/PS/PC/MS → cache; required for getters and widget sync |
-| GPScript getters + more setters | Agent | `GetLineMute`, `SetLineLevel`, solo, pan (Phase 2) |
+| GPScript getters + more setters | Agent | `GetLineLevel`, `SetLineLevel`, solo, pan (Phase 2); `GetLineMute` done |
 | UDP discovery | Agent | Phase 4 — fixture `01-discovery-broadcast` still skipped |
 | Widget binding | Agent | Phase 3 — registry, feedback-loop suppression |
 | Optional fixture re-capture (`01`, `06`, `18`) | User | Low priority |
@@ -248,7 +247,7 @@ extension enabled, script editor reopened after reload, and Product XML uses
 9. ~~**Agent**: Phase 1 protocol port~~ **Done** (TCP session, KeepAlive, FD, JM subscribe path).
 10. ~~**User**: hardware smoke test on 32R~~ **Done 2026-05-20** — mute on desk confirmed @ `10.0.0.14`.
 11. ~~**Agent**: UCNet handshake on `Connect`~~ **Done 2026-05-20** (`0d4a79b`).
-12. **Agent**: Phase 2 — **in progress** (state cache, getters, level/solo commands).
+12. **Agent**: Phase 2 — **in progress** (level/solo/pan getters+setters; `GetLineMute` + `KvCache` done).
 13. Continue Phases 3–5 per §5.
 
 ### How to reproduce the verified build from scratch

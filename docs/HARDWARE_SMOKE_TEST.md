@@ -42,7 +42,9 @@ Initialization
     Print(PreSonusStudioLive_Connect("10.0.0.14"))
     Print(PreSonusStudioLive_IsConnected())
     Print(PreSonusStudioLive_SetLineMute(1, 1))
+    Print(PreSonusStudioLive_GetLineMute(1))
     Print(PreSonusStudioLive_SetLineMute(1, 0))
+    Print(PreSonusStudioLive_GetLineMute(1))
 End
 ```
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "bridge/Logger.h"
+#include "state/KvCache.h"
 
 #include <atomic>
 #include <cstdint>
@@ -35,6 +36,7 @@ class MixerService
     bool isConnected() const;
 
     bool setLineMute(int channel, bool muted);
+    std::optional<bool> getLineMute(int channel) const;
     bool requestFileList(const std::string &path);
 
     /// Next `FR` / FD list request id (wraps at 16 bits).
@@ -49,6 +51,7 @@ class MixerService
     void enqueue(IoTask task);
 
     bridge::Logger &logger_;
+    state::KvCache stateCache_;
     std::unique_ptr<protocol::MixerConnection> connection_;
     std::thread ioThread_;
     std::mutex mutex_;
