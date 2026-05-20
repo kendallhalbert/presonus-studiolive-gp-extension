@@ -105,7 +105,9 @@ void LibMain::Initialization()
 
     bridge::ExtensionContext::setInstance(context_.get());
 
-
+    mixer_ = std::make_unique<mixer::MixerService>(logger_);
+    context_->setMixerService(mixer_.get());
+    context_->setConfigStore(&config_);
 
     config_.load();
 
@@ -140,6 +142,11 @@ void LibMain::OnClose()
 {
 
     unregisterCallback("OnWidgetValueChanged");
+
+    if (mixer_ != nullptr)
+    {
+        mixer_->disconnect();
+    }
 
     config_.save();
 

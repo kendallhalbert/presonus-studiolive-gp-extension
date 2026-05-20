@@ -31,20 +31,21 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-20 | `SessionPacketDecoder` (stateful CK/ZB); **18 tests** green. CI fixed (MSVC dev cmd + `ctest -C Debug`). |
 | 2026-05-20 | **Bookmark refresh.** Phase 1 next: TCP client + KeepAlive, FD/JM handlers, then `Client`/`Transport`. |
 | 2026-05-20 | Phase 1: `Transport`, `WinSockTransport`, `MixerConnection`, `KeepAlive`, `FdAssembler`/`FdParser`; **25 tests** green. |
+| 2026-05-20 | Phase 2 slice: `PvEncoder`, `FileRequest`, `MixerService` IO thread, GPScript Connect/SetLineMute; **29 tests** green. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-20 (Phase 1 — TCP session layer)**
+**Last updated: 2026-05-20 (Phase 2 vertical slice — mute from GPScript)**
 
 ### TL;DR
 
-Phase 0 **complete** on GP 5 Pro. GP-bridge done for now. Phase 1 progress:
-wire parsers through `MixerConnection` (`Transport` + `DataClient` + session/FD
-decoders), `KeepAlive` (KA + FR probes), `FdAssembler` for project lists —
-**25 tests** green locally and in CI. **Next:** `sendList` / FR requests, JM
-handler, KVTree/cache, then Phase 2 GPScript surface.
+Phase 0 **complete** on GP 5 Pro. Phase 1 wire + TCP session layer **done**.
+**Phase 2 started:** outgoing PV mute, `MixerService` on IO thread, GPScript
+`PreSonusStudioLive_Connect` / `SetLineMute` / `IsConnected` / `Disconnect` —
+**29 tests** green. **Next:** test on real 32R, expand commands (level/solo),
+KVTree/state cache, handshake/subscribe.
 
 ### What's done
 
@@ -218,8 +219,9 @@ extension enabled, script editor reopened after reload, and Product XML uses
 6. ~~**Agent**: copy fixtures.~~ **Done 2026-05-18**.
 7. ~~**Agent**: commit GP smoke-test fixes.~~ **Done 2026-05-20** (`84219c0`).
 8. ~~**Agent**: GP-bridge infrastructure.~~ **Mostly done 2026-05-20** — drain at GP entry points (no SDK timer); ScriptFunctions + ConfigStore landed.
-9. **Agent**: Phase 1 protocol port — **in progress** (TCP session layer + FD lists done; **FR encode + JM + state cache** next).
-10. Continue Phases 2–5 per §5.
+9. ~~**Agent**: Phase 1 protocol port~~ **mostly done** (TCP session + encoders landed).
+10. **Agent**: Phase 2 — **in progress** (Connect + line mute slice; expand API + state cache).
+11. Continue Phases 3–5 per §5.
 
 ### How to reproduce the verified build from scratch
 

@@ -14,6 +14,7 @@
 #include "bridge/Dispatcher.h"
 #include "bridge/ExtensionContext.h"
 #include "bridge/Logger.h"
+#include "mixer/MixerService.h"
 
 #include "gigperformer/sdk/GigPerformerAPI.h"
 #include "gigperformer/sdk/types.h"
@@ -59,6 +60,7 @@ class LibMain final : public gigperformer::sdk::GigPerformerAPI
     bridge::Logger logger_;
     bridge::ConfigStore config_;
     std::unique_ptr<bridge::ExtensionContext> context_;
+    std::unique_ptr<mixer::MixerService> mixer_;
 
     LibMain(const LibMain &) = delete;
     LibMain &operator=(const LibMain &) = delete;

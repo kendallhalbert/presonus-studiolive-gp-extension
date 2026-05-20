@@ -19,13 +19,16 @@ add_library(psl_bridge STATIC
   src/bridge/RealGpHost.cpp
   src/bridge/ExtensionContext.cpp
   src/bridge/ScriptFunctions.cpp
-  src/bridge/ConfigStore.cpp)
+  src/bridge/ConfigStore.cpp
+  src/mixer/MixerService.cpp)
 
 add_library(psl_protocol STATIC
   src/protocol/MessageProtocol.cpp
   src/protocol/ParamKey.cpp
   src/protocol/HexUtil.cpp
   src/protocol/PvParser.cpp
+  src/protocol/PvEncoder.cpp
+  src/protocol/FileRequest.cpp
   src/protocol/PcParser.cpp
   src/protocol/PsParser.cpp
   src/protocol/MsParser.cpp
@@ -75,7 +78,8 @@ target_include_directories(psl_bridge
 
 target_link_libraries(psl_bridge
   PUBLIC
-    gigperformer::sdk::c)
+    gigperformer::sdk::c
+    psl_protocol)
 
 target_compile_features(psl_bridge PUBLIC cxx_std_20)
 
