@@ -1,114 +1,179 @@
 # PreSonus StudioLive — Gig Performer Extension
 
-Native Windows extension (`PreSonusStudioLive.dll`) that lets
-[Gig Performer](https://gigperformer.com) 4.8+ control a **PreSonus
-StudioLive III** mixer (LINE / AUX / FX / MAIN / DCA / SUB faders, mutes,
-solos, scenes, etc.) directly from **GPScript** via `psl_*` functions.
+Native Windows extension (`PreSonusStudioLive.dll`) that connects
+[Gig Performer](https://gigperformer.com) to a **PreSonus StudioLive III**
+mixer over UCNet (TCP port 53000). Control the desk from **GPScript** using
+`PreSonusStudioLive_*` functions — connect, LINE channel parameters, project/scene
+lists, and scene recall.
 
-This is a C++ port of the
+This repo is the C++ implementation that supersedes the Node.js
 [`@featherbear/presonus-studiolive-api`](https://github.com/featherbear/presonus-studiolive-api)
-Node.js library. The C++ extension becomes the canonical implementation
-going forward; the JS library is retired once fixture capture is complete.
+library. Wire-format behavior is validated against captured fixtures from a
+**StudioLive 32R** (firmware 3.3.0.109659).
 
-> **Status**: Phase 0 — scaffolding. The DLL builds, loads, and exposes
-> `psl_Version()` from GPScript. No mixer protocol yet. See
-> [`docs/GP_EXTENSION_PLAN.md`](docs/GP_EXTENSION_PLAN.md) for the full
-> roadmap.
+> **Status (2026-05-20):** Phase 0 and Phase 1 are **complete**. **Phase 2** is in
+> progress: UCNet handshake, parameter cache, LINE GPScript APIs, and FD project/scene
+> listing. **48 unit tests** across 24 executables. **Hardware verified** on a 32R:
+> TCP connect and LINE mute set/get. Other LINE APIs and scene recall are implemented
+> but not yet re-checked on hardware.
 >
-> The GPScript prefix comes from the extension product XML `Name` attribute
-> (capital N — see `LibMain.cpp::GetProductDescription`). GP strips spaces from
-> the name, so `Name="PreSonus StudioLive"` yields `PreSonusStudioLive_Version()`.
-> The `Description` field is the longer blurb shown alongside the name.
+> Design, roadmap, and phase detail:
+> [`docs/GP_EXTENSION_PLAN.md`](docs/GP_EXTENSION_PLAN.md).
+> Mixer on-desk validation:
+> [`docs/HARDWARE_SMOKE_TEST.md`](docs/HARDWARE_SMOKE_TEST.md).
+
+---
+
+## What works today
+
+| Area | GPScript surface | Notes |
+| ---- | ---------------- | ----- |
+| Session | `Connect`, `Disconnect`, `IsConnected` | TCP to mixer IP/hostname, port 53000 |
+| Logging | `SetLogLevel`, `LogFilePath` | File log under `%APPDATA%\PreSonusStudioLive\extension.log` |
+| LINE inputs | Mute, level (0–100%), solo, pan, color | 1-based channel index; getters read optimistic cache |
+| Projects / scenes | `GetProjectCount`, `GetProjectName`, `GetSceneCount`, `GetSceneName`, `RecallProjectScene` | First list call can block ~5s while FD payloads arrive |
+| Meta | `Version` | Currently reports `1.0.0-phase0` |
+
+**Planned (not in this build):** AUX / FX / MAIN / DCA / SUB paths, dB faders, fades,
+GP rackspace widgets, and broader mix-type coverage — see the plan doc §4.
+
+**Tested host:** Gig Performer **5 Pro** with GP SDK **`beta-sdk-v62`** (SDK version 62).
+GP 5 rejects extensions built against older SDK branches.
+
+---
+
+## GPScript API
+
+Gig Performer builds function names from the product XML `Name` attribute (capital
+**`Name=`** — lowercase `name=` is ignored on GP 5). Spaces are stripped, so
+`Name="PreSonus StudioLive"` yields the prefix **`PreSonusStudioLive_`**.
+
+C++ entry points use a `psl_` prefix internally; only the GPScript names below are
+visible to script authors.
+
+| Function | Arguments | Returns |
+| -------- | --------- | ------- |
+| `PreSonusStudioLive_Version` | — | String |
+| `PreSonusStudioLive_Connect` | `host : String` | Boolean |
+| `PreSonusStudioLive_Disconnect` | — | — |
+| `PreSonusStudioLive_IsConnected` | — | Boolean |
+| `PreSonusStudioLive_SetLogLevel` | `level : String` | Boolean |
+| `PreSonusStudioLive_LogFilePath` | — | String |
+| `PreSonusStudioLive_SetLineMute` | `channel : Integer`, `muted : Integer` | Boolean |
+| `PreSonusStudioLive_GetLineMute` | `channel : Integer` | Boolean |
+| `PreSonusStudioLive_SetLineLevelLinear` | `channel : Integer`, `level : Double` | Boolean |
+| `PreSonusStudioLive_GetLineLevelLinear` | `channel : Integer` | Double |
+| `PreSonusStudioLive_SetLineSolo` | `channel : Integer`, `soloed : Integer` | Boolean |
+| `PreSonusStudioLive_GetLineSolo` | `channel : Integer` | Boolean |
+| `PreSonusStudioLive_SetLinePan` | `channel : Integer`, `pan : Double` | Boolean |
+| `PreSonusStudioLive_GetLinePan` | `channel : Integer` | Double |
+| `PreSonusStudioLive_SetLineColor` | `channel : Integer`, `rgbHex : String` | Boolean |
+| `PreSonusStudioLive_GetLineColor` | `channel : Integer` | String |
+| `PreSonusStudioLive_GetProjectCount` | — | Integer |
+| `PreSonusStudioLive_GetProjectName` | `index : Integer` | String |
+| `PreSonusStudioLive_GetSceneCount` | `projectFile : String` | Integer |
+| `PreSonusStudioLive_GetSceneName` | `projectFile : String`, `index : Integer` | String |
+| `PreSonusStudioLive_RecallProjectScene` | `projectFile : String`, `sceneFile : String` | Boolean |
+
+GPScript requires functions that return a value to appear inside `Print(...)` or an
+assignment. `Disconnect()` may be called as a standalone statement.
+
+Minimal rackspace check:
+
+```gigperformer
+Initialization
+    Print(PreSonusStudioLive_Version())
+End
+```
 
 ---
 
 ## Prerequisites
 
-| Tool                                         | Tested version             |
-| -------------------------------------------- | -------------------------- |
-| Visual Studio 2026 Community / Professional  | 18.6.x (Native Desktop)    |
-| CMake                                        | 4.2.3 (bundled with VS)    |
-| Ninja (optional, but recommended for CI)     | bundled with VS            |
-| Gig Performer                                | ≥ 4.8 (SDK v47)            |
-| Gig Performer SDK clone                      | latest `main` at `https://github.com/gigperformer/gp-sdk` |
+| Tool | Notes |
+| ---- | ----- |
+| Windows 10/11 x64 | macOS/Linux are out of scope for v1 |
+| Visual Studio 2022 or 2026 | “Desktop development with C++” workload |
+| CMake ≥ 3.21 | Bundled with VS; Ninja Multi-Config recommended |
+| [Gig Performer SDK](https://github.com/gigperformer/gp-sdk) | Branch **`beta-sdk-v62`** required for GP 5 |
+| Gig Performer ≥ 4.8 | Validated on **GP 5 Pro** |
 
-The SDK clone is expected at
-`C:/Users/KenHa/source/repos/gigperformer/gp-sdk` by default. Override with
-`-DGP_SDK_DIR=<your/path>`.
+Clone the SDK and check out the correct branch **before** configuring this project:
+
+```powershell
+git clone https://github.com/gigperformer/gp-sdk C:\path\to\gp-sdk
+cd C:\path\to\gp-sdk
+git checkout beta-sdk-v62
+```
+
+Pass your clone path to CMake with `-DGP_SDK_DIR=C:/path/to/gp-sdk`. The default
+cache path in `CMakeLists.txt` is machine-specific; override it on every machine.
 
 ---
 
 ## Build
 
-The simplest path (uses VS 2026's bundled CMake + Ninja Multi-Config):
+Use a **Developer PowerShell for VS** prompt so `cl` and Ninja are on `PATH`.
+
+### Unit tests (Debug)
 
 ```powershell
-# from a "Developer PowerShell for VS 2026" prompt
-cmake -S . -B build -G "Ninja Multi-Config"
+cmake -S . -B build -G "Ninja Multi-Config" -DGP_SDK_DIR=C:/path/to/gp-sdk
 cmake --build build --config Debug
-ctest --test-dir build --build-config Debug --output-on-failure
+ctest --test-dir build -C Debug --output-on-failure
 ```
 
-Or via the IDE-friendly Visual Studio generator:
+Visual Studio generator alternative:
 
 ```powershell
-cmake -S . -B build -G "Visual Studio 18 2026" -A x64
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DGP_SDK_DIR=C:/path/to/gp-sdk
 cmake --build build --config Debug
-ctest --test-dir build --build-config Debug --output-on-failure
+ctest --test-dir build -C Debug --output-on-failure
 ```
 
-Either way, the DLL ends up at:
+Debug output: `build/bin/Debug/PreSonusStudioLive.dll` — for local dev and CI only.
 
-```
-build/bin/Debug/PreSonusStudioLive.dll      # local dev/tests only — do NOT install in GP
-build-rel/bin/Release/PreSonusStudioLive.dll # use this for Gig Performer (see below)
-```
+### Gig Performer install (Release)
 
-> **Important:** Gig Performer cannot load a **Debug** build. Debug DLLs depend on
-> `MSVCP140D.dll` / `VCRUNTIME140D.dll` / `ucrtbased.dll`, which are only present
-> when Visual Studio is installed. GP will silently ignore the extension. Always
-> install a **Release** build into the Extensions folder.
-
-Release build (VS 2022 generator example):
+Gig Performer **cannot** load a Debug build. Debug DLLs depend on `MSVCP140D.dll`,
+`VCRUNTIME140D.dll`, and `ucrtbased.dll`, which are not present in a normal GP install.
+GP will silently ignore the extension.
 
 ```powershell
-cmake -S . -B build-rel -G "Visual Studio 17 2022" -A x64
+cmake -S . -B build-rel -G "Visual Studio 17 2022" -A x64 -DGP_SDK_DIR=C:/path/to/gp-sdk
 cmake --build build-rel --config Release --parallel
 ```
 
-To install into Gig Performer's Extensions folder:
+Release output: `build-rel/bin/Release/PreSonusStudioLive.dll`.
+
+Install into Gig Performer’s Extensions folder (pick one method):
 
 ```powershell
+# Helper: finds Public Documents, %USERPROFILE%\Documents, or OneDrive Extensions
+.\tools\install-gp-release.ps1
+
+# Or CMake install (default destination is Public Documents\Gig Performer\Extensions)
 cmake --install build-rel --config Release --component dev
 ```
 
-(requires write access to `C:\Users\Public\Documents\Gig Performer\Extensions\`)
+Typical Extensions paths:
+
+- `C:\Users\Public\Documents\Gig Performer\Extensions\`
+- `%USERPROFILE%\Documents\Gig Performer\Extensions\`
+
+In Gig Performer: **Options → Reload Third Party Libraries** (or restart), then enable
+**PreSonus StudioLive** under **Options → Extensions**. Expect version `1.0.0-phase0`.
 
 ---
 
-## Manual smoke test (Phase 0 acceptance)
+## Hardware smoke test
 
-1. Build **Release** as above (not Debug).
-2. Copy `build-rel/bin/Release/PreSonusStudioLive.dll` into
-   `C:\Users\Public\Documents\Gig Performer\Extensions\`.
-3. Start Gig Performer.
-4. Open **Options → Extensions** — **PreSonus StudioLive** should appear
-   in the list with version `1.0.0-phase0`. Tick the box to enable it.
-   Restart GP if prompted.
-5. Create a scratch rackspace, open the GPScript window for the rackspace,
-   and add:
+With a StudioLive on the LAN (TCP **53000** open, UC Surface closed so only one client
+holds the session), follow
+[`docs/HARDWARE_SMOKE_TEST.md`](docs/HARDWARE_SMOKE_TEST.md) for a full GPScript
+exercise (connect, mute, optional widget-driven steps, log file location).
 
-    ```gigperformer
-    Initialization
-        Print(PreSonusStudioLive_Version())
-    End
-    ```
-
-6. Save the rackspace. The GP log should print
-   `1.0.0-phase0`.
-
-Steps 1–6 are the Phase 0 acceptance criteria (GP load + GPScript version call).
-Confirmed on Gig Performer 5 Pro, 2026-05-20.
+Confirmed on **StudioLive 32R** @ `10.0.0.14`: connect and LINE 1 mute toggles the desk.
 
 ---
 
@@ -116,30 +181,47 @@ Confirmed on Gig Performer 5 Pro, 2026-05-20.
 
 ```
 .
-├── CMakeLists.txt              # top-level project, picks up GP SDK + tests
-├── extension/                  # the DLL itself
+├── CMakeLists.txt                 # project + GP_SDK_DIR + install path
+├── extension/
 │   ├── CMakeLists.txt
 │   └── src/
-│       ├── LibMain.h           # GigPerformerAPI subclass
-│       ├── LibMain.cpp
-│       ├── Version.h           # PSL_VERSION_STRING
-│       ├── bridge/             # Logger, Dispatcher, GpHost, ExtensionContext, …
-│       └── protocol/           # MessageProtocol, PV/PC/PS/MS parsers, DataClient
-├── tests/                      # GoogleTest, brought in via FetchContent
-│   ├── CMakeLists.txt
-│   └── unit/
-│       └── test_sanity.cpp     # phase-0 placeholder
+│       ├── LibMain.cpp            # GigPerformerAPI subclass, product XML
+│       ├── bridge/                # GP host, dispatcher, ScriptFunctions, logging
+│       ├── protocol/              # UCNet parsers, handshake, MixerConnection
+│       ├── transport/             # WinSock + scripted transports
+│       ├── state/                 # KvCache (PV/PS/PC/MS + ZB flatten)
+│       └── mixer/                 # MixerService IO thread
+├── tests/
+│   ├── CMakeLists.txt             # one GoogleTest executable per unit/*.cpp
+│   ├── fixtures/                  # captured wire traffic (32R, fw 3.3.0.109659)
+│   └── unit/                      # protocol, transport, cache, LINE controls, …
 ├── docs/
-│   └── GP_EXTENSION_PLAN.md    # canonical design doc (kept in sync with JS repo)
-├── cmake/                      # helper modules (currently empty)
-└── .github/workflows/ci.yml    # Windows configure + build + ctest
+│   ├── GP_EXTENSION_PLAN.md       # design + phased roadmap (canonical)
+│   └── HARDWARE_SMOKE_TEST.md     # on-desk validation runbook
+├── tools/
+│   └── install-gp-release.ps1     # copy Release DLL into GP Extensions
+├── .github/workflows/ci.yml       # Windows Debug build + ctest (clones beta-sdk-v62)
+└── cmake/                         # helper modules (reserved)
 ```
+
+---
+
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) on `windows-2022`:
+
+1. Clone `gp-sdk` at **`beta-sdk-v62`**
+2. Configure with Ninja Multi-Config and `-DPSL_WARNINGS_AS_ERRORS=ON`
+3. Debug build + `ctest -C Debug`
+4. Upload `PreSonusStudioLive.dll` as a workflow artifact
+
+Remote: https://github.com/kendallhalbert/presonus-studiolive-gp-extension
 
 ---
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE).
 
-The `gp-sdk` source pulled in via `add_subdirectory` retains its own
-licence (see the SDK repo's `LICENSE.md`).
+The Gig Performer SDK (vendored via `add_subdirectory`) retains its own license;
+see the SDK repository’s `LICENSE.md`.
