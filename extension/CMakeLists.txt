@@ -36,7 +36,13 @@ add_library(psl_protocol STATIC
   src/protocol/ZlibState.cpp
   src/protocol/CkAssembler.cpp
   src/protocol/ZbParser.cpp
-  src/protocol/SessionPacketDecoder.cpp)
+  src/protocol/SessionPacketDecoder.cpp
+  src/protocol/FdAssembler.cpp
+  src/protocol/FdParser.cpp
+  src/protocol/KeepAlive.cpp
+  src/protocol/MixerConnection.cpp
+  src/transport/ScriptedTransport.cpp
+  src/transport/WinSockTransport.cpp)
 
 target_include_directories(psl_protocol
   PUBLIC
@@ -47,7 +53,9 @@ target_include_directories(psl_protocol
 
 target_link_libraries(psl_protocol
   PUBLIC
-    zlibstatic)
+    zlibstatic
+  PRIVATE
+    ws2_32)
 
 target_compile_features(psl_protocol PUBLIC cxx_std_20)
 

@@ -28,20 +28,23 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-20 | GP-bridge expanded: ExtensionContext drain at GP entry points, ScriptFunctions, ConfigStore. Phase 1 started: MessageProtocol + PvParser with fixture tests (10 tests). |
 | 2026-05-20 | Phase 1: PC/PS/MS parsers, PacketParser dispatch, DataClient TCP deframer; 15 unit tests green. |
 | 2026-05-20 | Phase 1: ZB/CK zlib + UBJSON + ZlibState (`CkAssembler`, `ZbParser`, zlib FetchContent); **17 tests** green. |
+| 2026-05-20 | `SessionPacketDecoder` (stateful CK/ZB); **18 tests** green. CI fixed (MSVC dev cmd + `ctest -C Debug`). |
+| 2026-05-20 | **Bookmark refresh.** Phase 1 next: TCP client + KeepAlive, FD/JM handlers, then `Client`/`Transport`. |
+| 2026-05-20 | Phase 1: `Transport`, `WinSockTransport`, `MixerConnection`, `KeepAlive`, `FdAssembler`/`FdParser`; **25 tests** green. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-20 (Phase 1 ZB/CK + UBJSON)**
+**Last updated: 2026-05-20 (Phase 1 — TCP session layer)**
 
 ### TL;DR
 
 Phase 0 **complete** on GP 5 Pro. GP-bridge done for now. Phase 1 progress:
-`MessageProtocol`, PV/PC/PS/MS parsers, `DataClient` deframer, `parseWirePacket`,
-ZB/CK inflate path (`CkAssembler`, `Ubjson`, `ZlibState`, `ZbParser`) —
-**17 tests** green. **Next:** wire CK/ZB into session decoder / `PacketParser`,
-TCP client + KeepAlive, FD/JM handlers.
+wire parsers through `MixerConnection` (`Transport` + `DataClient` + session/FD
+decoders), `KeepAlive` (KA + FR probes), `FdAssembler` for project lists —
+**25 tests** green locally and in CI. **Next:** `sendList` / FR requests, JM
+handler, KVTree/cache, then Phase 2 GPScript surface.
 
 ### What's done
 
@@ -57,10 +60,10 @@ TCP client + KeepAlive, FD/JM handlers.
 | Visual Studio 2026 Community + "Desktop development with C++" workload installed (CMake 4.2.3 + Ninja bundled) | Local: `C:\Program Files\Microsoft Visual Studio\18\Community` |
 | **Phase 0 scaffold + empty DLL** | `presonus-studiolive-gp-extension` (GoogleTest green; **GP 5 smoke test confirmed 2026-05-20**) |
 | **Phase 0 GP acceptance** | GP 5 Pro — `PreSonusStudioLive_Version()` → `1.0.0-phase0` (Release DLL, SDK v62, `Name="PreSonus StudioLive"`) |
-| **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` (`main` @ `cc639d4` on remote; local edits ahead) |
+| **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` — `main` green; clones `beta-sdk-v62`, Ninja Debug + 18 tests |
 | **Wire-level fixtures** | `tests/fixtures/` — StudioLive 32R, fw 3.3.0.109659 |
 | **GP-bridge (partial)** | `extension/src/bridge/` — Logger, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore |
-| **Phase 1 (partial)** | `extension/src/protocol/` — MessageProtocol, PV/PC/PS/MS, DataClient, PacketParser, ZB/CK/UBJSON/ZlibState; 17 tests |
+| **Phase 1 (partial)** | `extension/src/protocol/` + `extension/src/transport/` — parsers, `MixerConnection`, `KeepAlive`, `FdAssembler`; **25 tests** |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
 ### GP smoke test notes (2026-05-20, confirmed)
@@ -127,13 +130,12 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 
 ### Repo state at bookmark
 
-**C++ repo** (`presonus-studiolive-gp-extension`) — **local commits ahead of
-origin** (push when ready):
+**C++ repo** (`presonus-studiolive-gp-extension`) — **in sync with origin**:
 
 ```
 Branch:  main (tracks origin/main)
 Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
-Ahead:   GP 5 integration commit + GP-bridge scaffold (pending push)
+HEAD:    f9a760e (CI green)
 ```
 
 **GP install DLL** (local Release, SDK v62):
@@ -172,7 +174,7 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
 | GP-bridge remainder | Agent | Widget binding registry, feedback-loop suppression (Phase 3) |
-| Phase 1 protocol port | Agent | ZB/CK + Ubjson, ZlibState, TCP client, KeepAlive, FD/JM handlers |
+| Phase 1 protocol port | Agent | `sendList`/FR encode, JM handler, KVTree/cache; wire IO thread in extension |
 | Optional fixture re-capture (`01`, `06`, `18`) | User | Low priority |
 
 ### Phase 0 GP-side smoke test (updated 2026-05-20)
@@ -216,7 +218,7 @@ extension enabled, script editor reopened after reload, and Product XML uses
 6. ~~**Agent**: copy fixtures.~~ **Done 2026-05-18**.
 7. ~~**Agent**: commit GP smoke-test fixes.~~ **Done 2026-05-20** (`84219c0`).
 8. ~~**Agent**: GP-bridge infrastructure.~~ **Mostly done 2026-05-20** — drain at GP entry points (no SDK timer); ScriptFunctions + ConfigStore landed.
-9. **Agent**: Phase 1 protocol port — **in progress** (framing + PV/PC/PS/MS parsers + DataClient; ZB/UBJSON next).
+9. **Agent**: Phase 1 protocol port — **in progress** (TCP session layer + FD lists done; **FR encode + JM + state cache** next).
 10. Continue Phases 2–5 per §5.
 
 ### How to reproduce the verified build from scratch
