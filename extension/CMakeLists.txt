@@ -5,7 +5,30 @@
 add_library(psl_bridge STATIC
   src/bridge/Logger.cpp
   src/bridge/Dispatcher.cpp
-  src/bridge/RealGpHost.cpp)
+  src/bridge/RealGpHost.cpp
+  src/bridge/ExtensionContext.cpp
+  src/bridge/ScriptFunctions.cpp
+  src/bridge/ConfigStore.cpp)
+
+add_library(psl_protocol STATIC
+  src/protocol/MessageProtocol.cpp
+  src/protocol/PvParser.cpp)
+
+target_include_directories(psl_protocol
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+target_compile_features(psl_protocol PUBLIC cxx_std_20)
+
+if(MSVC)
+  target_compile_options(psl_protocol PRIVATE
+    /W4 /permissive- /utf-8 /Zc:__cplusplus /Zc:preprocessor /EHsc)
+  target_compile_definitions(psl_protocol PRIVATE
+    _CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
+  if(PSL_WARNINGS_AS_ERRORS)
+    target_compile_options(psl_protocol PRIVATE /WX)
+  endif()
+endif()
 
 target_include_directories(psl_bridge
   PUBLIC
@@ -16,6 +39,12 @@ target_link_libraries(psl_bridge
     gigperformer::sdk::c)
 
 target_compile_features(psl_bridge PUBLIC cxx_std_20)
+
+target_compile_definitions(psl_bridge PRIVATE
+  PSL_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+  PSL_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+  PSL_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+  PSL_VERSION_TAG="phase0")
 
 if(MSVC)
   target_compile_options(psl_bridge PRIVATE
@@ -35,6 +64,7 @@ add_library(PreSonusStudioLive SHARED
 target_link_libraries(PreSonusStudioLive
   PRIVATE
     psl_bridge
+    psl_protocol
     gigperformer::sdk::cpp)
 
 target_include_directories(PreSonusStudioLive

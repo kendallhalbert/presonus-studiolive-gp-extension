@@ -25,20 +25,20 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-20 | **Bookmarked / paused by user.** GP 5 smoke test in progress — Release DLL + SDK v62 + product XML fixes landed locally (uncommitted). See "GP smoke test notes" below. |
 | 2026-05-20 | Phase 0 GP smoke test **confirmed** on **Gig Performer 5 Pro** — `PreSonusStudioLive_Version()` prints `1.0.0-phase0`. Integration fixes still local/uncommitted. |
 | 2026-05-20 | GP 5 integration fixes committed (`84219c0`). CI clones `beta-sdk-v62`. GP-bridge scaffold: Logger, Dispatcher, GpHost/RealGpHost/MockGpHost + unit tests. |
+| 2026-05-20 | GP-bridge expanded: ExtensionContext drain at GP entry points, ScriptFunctions, ConfigStore. Phase 1 started: MessageProtocol + PvParser with fixture tests (10 tests). |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-20 (GP-bridge scaffold landed)**
+**Last updated: 2026-05-20 (Phase 1 protocol parsing started)**
 
 ### TL;DR
 
-Phase 0 **complete** on GP 5 Pro (`PreSonusStudioLive_Version()` → `1.0.0-phase0`).
-GP 5 integration fixes committed; CI uses SDK **v62**. GP-bridge foundation in
-`extension/src/bridge/` (Logger, Dispatcher, GpHost + tests). **Next:** wire
-dispatcher drain on GP timer, ScriptFunctions table, then Phase 1 protocol port
-against fixtures.
+Phase 0 **complete** on GP 5 Pro. Pushed to GitHub (`288eecb`+). GP-bridge:
+Logger, Dispatcher, GpHost, ExtensionContext (drain on GP callbacks + GPScript),
+ScriptFunctions, ConfigStore. Phase 1 begun: `MessageProtocol` + `PvParser` with
+fixture-backed tests. **Next:** PC/PS handlers, DataClient/TCP, ZB/UBJSON.
 
 ### What's done
 
@@ -56,7 +56,8 @@ against fixtures.
 | **Phase 0 GP acceptance** | GP 5 Pro — `PreSonusStudioLive_Version()` → `1.0.0-phase0` (Release DLL, SDK v62, `Name="PreSonus StudioLive"`) |
 | **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` (`main` @ `cc639d4` on remote; local edits ahead) |
 | **Wire-level fixtures** | `tests/fixtures/` — StudioLive 32R, fw 3.3.0.109659 |
-| **GP-bridge (partial)** | `extension/src/bridge/` — Logger, Dispatcher, GpHost/RealGpHost/MockGpHost; 6 unit tests green |
+| **GP-bridge (partial)** | `extension/src/bridge/` — Logger, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore |
+| **Phase 1 (partial)** | `extension/src/protocol/` — MessageProtocol, PvParser; fixture tests green |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
 ### GP smoke test notes (2026-05-20, confirmed)
@@ -167,9 +168,8 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
-| Push local commits | User | `84219c0` + bridge scaffold ahead of origin |
-| GP-bridge remainder | Agent | Timer drain, ScriptFunctions, ConfigStore, widget binding registry |
-| Phase 1 protocol port | Agent | Ubjson, DataClient, handlers vs fixtures |
+| GP-bridge remainder | Agent | Widget binding registry, feedback-loop suppression (Phase 3) |
+| Phase 1 protocol port | Agent | PC/PS parsers, Ubjson, ZlibState, DataClient, remaining handlers |
 | Optional fixture re-capture (`01`, `06`, `18`) | User | Low priority |
 
 ### Phase 0 GP-side smoke test (updated 2026-05-20)
@@ -212,8 +212,8 @@ extension enabled, script editor reopened after reload, and Product XML uses
 5. ~~**User**: mixer capture session.~~ **Done 2026-05-18**.
 6. ~~**Agent**: copy fixtures.~~ **Done 2026-05-18**.
 7. ~~**Agent**: commit GP smoke-test fixes.~~ **Done 2026-05-20** (`84219c0`).
-8. **Agent**: GP-bridge infrastructure — **in progress** (Logger, Dispatcher, GpHost + tests done; timer drain, ScriptFunctions, ConfigStore remain).
-9. **Agent**: Phase 1 protocol port against fixtures.
+8. ~~**Agent**: GP-bridge infrastructure.~~ **Mostly done 2026-05-20** — drain at GP entry points (no SDK timer); ScriptFunctions + ConfigStore landed.
+9. **Agent**: Phase 1 protocol port — **in progress** (MessageProtocol + PV parser + tests).
 10. Continue Phases 2–5 per §5.
 
 ### How to reproduce the verified build from scratch

@@ -10,7 +10,9 @@
 
 #pragma once
 
+#include "bridge/ConfigStore.h"
 #include "bridge/Dispatcher.h"
+#include "bridge/ExtensionContext.h"
 #include "bridge/Logger.h"
 
 #include "gigperformer/sdk/GigPerformerAPI.h"
@@ -40,6 +42,8 @@ class LibMain final : public gigperformer::sdk::GigPerformerAPI
     void OnOpen() override;
     void OnClose() override;
 
+    void OnWidgetValueChanged(const std::string &widgetName, double newValue) override;
+
     // ---- GPScript -------------------------------------------------------
     // Note: GPScript_AllowedLocations and ExternalAPI_GPScriptFunctionDefinition
     // are C types in the global namespace (declared inside extern "C" in
@@ -53,6 +57,8 @@ class LibMain final : public gigperformer::sdk::GigPerformerAPI
     std::unique_ptr<bridge::GpHost> gpHost_;
     bridge::Dispatcher dispatcher_;
     bridge::Logger logger_;
+    bridge::ConfigStore config_;
+    std::unique_ptr<bridge::ExtensionContext> context_;
 
     LibMain(const LibMain &) = delete;
     LibMain &operator=(const LibMain &) = delete;

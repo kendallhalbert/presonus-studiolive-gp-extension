@@ -38,7 +38,10 @@ function(psl_add_unit_test name)
   target_link_libraries(test_${name} PRIVATE
     GTest::gtest_main
     GTest::gmock
-    psl_bridge)
+    psl_bridge
+    psl_protocol)
+  target_compile_definitions(test_${name} PRIVATE
+    PSL_FIXTURE_ROOT="${CMAKE_SOURCE_DIR}/tests/fixtures")
   target_compile_features(test_${name} PRIVATE cxx_std_20)
   target_include_directories(test_${name} PRIVATE
     ${CMAKE_SOURCE_DIR}/extension/src)
@@ -67,3 +70,6 @@ psl_add_unit_test(sanity)
 psl_add_unit_test(dispatcher)
 psl_add_unit_test(logger)
 psl_add_unit_test(gp_host)
+psl_add_unit_test(extension_context)
+psl_add_unit_test(config_store)
+psl_add_unit_test(message_protocol)
