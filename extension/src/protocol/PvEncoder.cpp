@@ -44,9 +44,4 @@ std::vector<std::uint8_t> createPvBoolPacket(const std::string &key, bool value)
     return createPvPacket(key, value ? 1.0F : 0.0F);
 }
 
-std::string lineChannelMuteKey(int channel)
-{
-    return "line/ch" + std::to_string(channel) + "/mute";
-}
-
 } // namespace presonus::studiolive::gpext::protocol

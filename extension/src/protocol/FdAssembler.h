@@ -8,6 +8,12 @@
 namespace presonus::studiolive::gpext::protocol
 {
 
+struct FdAssemblyResult
+{
+    std::uint16_t requestId = 0;
+    std::vector<std::uint8_t> json;
+};
+
 /// Reassembles chunked FD payloads into one JSON blob (14-byte chunk header).
 class FdAssembler
 {
@@ -15,7 +21,7 @@ class FdAssembler
     static constexpr std::size_t kHeaderSize = 14;
 
     /// Feed the FD *payload* (bytes after the 12-byte UCNet prefix).
-    std::optional<std::vector<std::uint8_t>> addChunk(std::span<const std::uint8_t> payload);
+    std::optional<FdAssemblyResult> addChunk(std::span<const std::uint8_t> payload);
 
     void reset();
 

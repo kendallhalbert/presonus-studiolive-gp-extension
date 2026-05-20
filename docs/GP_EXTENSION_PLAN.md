@@ -36,22 +36,21 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-20 | UCNet handshake on connect (JM Subscribe, ZB + `SubscriptionReply`, gated keepalive); **36 tests** green (`0d4a79b`). |
 | 2026-05-20 | **Hardware smoke test passed** on **StudioLive 32R** @ `10.0.0.14` — line 1 mute from GPScript moves desk. See `docs/HARDWARE_SMOKE_TEST.md`. |
 | 2026-05-20 | Phase 2: `KvCache` (PV/PS/PC/MS + ZB flatten), `GetLineMute`, optimistic mute cache; **41 tests** green. |
+| 2026-05-20 | Phase 2: LINE level/solo/pan/color GPScript + project/scene list/recall; **48 tests** green. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-20 (Phase 2 — state cache + GetLineMute)**
+**Last updated: 2026-05-20 (Phase 2 — LINE controls + scene list)**
 
 ### TL;DR
 
 Phase 0 **complete** on GP 5 Pro. Phase 1 wire + TCP session layer **done**.
-**Phase 2 in progress:** UCNet handshake, `KvCache` on incoming PV/PS/PC/MS/ZB,
-outgoing PV mute, `GetLineMute` / `SetLineMute`, `MixerService` IO thread, file
-log under `%APPDATA%\PreSonusStudioLive\`. GPScript adds **`GetLineMute`**.
-**41 tests** green. **Hardware verified:** 32R @ `10.0.0.14`, input 1 mute
-toggles on desk.
-**Next:** `GetLineLevel` / `SetLineLevel`, solo, pan; UDP discovery (Phase 4).
+**Phase 2 in progress:** UCNet handshake, `KvCache`, LINE mute/level/solo/pan/color
+GPScript, blocking FD project/scene lists, `RecallProjectScene` (FR Open).
+**48 tests** green. **Hardware verified:** 32R @ `10.0.0.14`, mute on desk.
+**Next:** generic `type`/`mixType` APIs (§4.3–4.6), dB faders, fades; Phase 3 widgets.
 
 ### What's done
 
@@ -198,7 +197,7 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
-| GPScript getters + more setters | Agent | `GetLineLevel`, `SetLineLevel`, solo, pan (Phase 2); `GetLineMute` done |
+| GPScript generic channel API | Agent | Full `type`/`mixType` mute/level/solo (§4.3–4.4); LINE shortcuts done |
 | UDP discovery | Agent | Phase 4 — fixture `01-discovery-broadcast` still skipped |
 | Widget binding | Agent | Phase 3 — registry, feedback-loop suppression |
 | Optional fixture re-capture (`01`, `06`, `18`) | User | Low priority |
@@ -247,7 +246,7 @@ extension enabled, script editor reopened after reload, and Product XML uses
 9. ~~**Agent**: Phase 1 protocol port~~ **Done** (TCP session, KeepAlive, FD, JM subscribe path).
 10. ~~**User**: hardware smoke test on 32R~~ **Done 2026-05-20** — mute on desk confirmed @ `10.0.0.14`.
 11. ~~**Agent**: UCNet handshake on `Connect`~~ **Done 2026-05-20** (`0d4a79b`).
-12. **Agent**: Phase 2 — **in progress** (level/solo/pan getters+setters; `GetLineMute` + `KvCache` done).
+12. **Agent**: Phase 2 — **in progress** (generic channel API + dB levels; LINE slice + scene list done).
 13. Continue Phases 3–5 per §5.
 
 ### How to reproduce the verified build from scratch

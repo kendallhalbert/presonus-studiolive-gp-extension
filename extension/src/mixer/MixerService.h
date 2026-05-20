@@ -1,6 +1,7 @@
 #pragma once
 
 #include "bridge/Logger.h"
+#include "protocol/FdParser.h"
 #include "state/KvCache.h"
 
 #include <atomic>
@@ -11,6 +12,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace presonus::studiolive::gpext::protocol
@@ -37,18 +39,51 @@ class MixerService
 
     bool setLineMute(int channel, bool muted);
     std::optional<bool> getLineMute(int channel) const;
+
+    bool setLineLevelLinear(int channel, double levelPercent);
+    std::optional<double> getLineLevelLinear(int channel) const;
+
+    bool setLineSolo(int channel, bool soloed);
+    std::optional<bool> getLineSolo(int channel) const;
+
+    bool setLinePan(int channel, double panPercent);
+    std::optional<double> getLinePan(int channel) const;
+
+    bool setLineColor(int channel, const std::string &rgbHex);
+    std::optional<std::string> getLineColor(int channel) const;
+
     bool requestFileList(const std::string &path);
+
+    int getProjectCount();
+    std::string getProjectName(int index);
+    int getSceneCount(const std::string &projectFile);
+    std::string getSceneName(const std::string &projectFile, int index);
+    bool recallProjectScene(const std::string &projectFile, const std::string &sceneFile);
 
     /// Next `FR` / FD list request id (wraps at 16 bits).
     std::uint16_t allocateRequestId();
 
   private:
     using IoTask = std::function<void()>;
+    struct FdWaitState
+    {
+        std::uint16_t requestId = 0;
+        std::atomic<bool> done{false};
+        std::vector<protocol::FdFileEntry> entries;
+    };
 
     void ensureThread();
     void stopThread();
     void ioLoop();
     void enqueue(IoTask task);
+    void sendPvFloat(const std::string &key, float value);
+    void sendPvBool(const std::string &key, bool value);
+    bool fetchFileListBlocking(const std::string &path,
+                               std::vector<protocol::FdFileEntry> &out);
+    void onFdListReceived(std::uint16_t requestId, std::vector<std::uint8_t> json);
+    static std::string sceneListPath(const std::string &projectFile);
+    static std::string sceneRecallPath(const std::string &projectFile,
+                                       const std::string &sceneFile);
 
     bridge::Logger &logger_;
     state::KvCache stateCache_;
@@ -59,6 +94,13 @@ class MixerService
     std::atomic<bool> running_{false};
     std::atomic<bool> connected_{false};
     std::atomic<std::uint16_t> nextRequestId_{0x1000};
+
+    std::mutex fdWaitMutex_;
+    std::unique_ptr<FdWaitState> fdWait_;
+
+    std::mutex catalogMutex_;
+    std::vector<protocol::FdFileEntry> projects_;
+    std::unordered_map<std::string, std::vector<protocol::FdFileEntry>> scenesByProject_;
 };
 
 } // namespace presonus::studiolive::gpext::mixer

@@ -14,4 +14,11 @@ std::vector<std::uint8_t> createFileListRequestPayload(std::uint16_t requestId,
 std::vector<std::uint8_t> createFileListRequestPacket(std::uint16_t requestId,
                                                       const std::string &path);
 
+/// `Open` + path (scene / project recall; path is UCNet file path under presets/).
+std::vector<std::uint8_t> createFileOpenRequestPayload(std::uint16_t requestId,
+                                                        const std::string &path);
+
+std::vector<std::uint8_t> createFileOpenRequestPacket(std::uint16_t requestId,
+                                                     const std::string &path);
+
 } // namespace presonus::studiolive::gpext::protocol

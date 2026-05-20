@@ -44,11 +44,11 @@ MixerConnection::MixerConnection(std::unique_ptr<transport::Transport> transport
                   keepAlive_.notifyFdResponse(readUInt16Le(wire->payload));
               }
 
-              if (const auto jsonBytes = fdAssembler_.addChunk(wire->payload))
+              if (const auto assembled = fdAssembler_.addChunk(wire->payload))
               {
                   if (onFdList_)
                   {
-                      onFdList_(FdListResult{*jsonBytes});
+                      onFdList_(FdListResult{assembled->requestId, assembled->json});
                   }
               }
               return;

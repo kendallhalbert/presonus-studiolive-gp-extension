@@ -1,17 +1,29 @@
 #include "mixer/MixerService.h"
 
 #include "protocol/ConnectionHandshake.h"
+#include "protocol/FdParser.h"
 #include "protocol/FileRequest.h"
 #include "protocol/JmPacket.h"
 #include "protocol/MixerConnection.h"
+#include "protocol/ParamKeys.h"
+#include "protocol/PcEncoder.h"
 #include "protocol/PvEncoder.h"
+#include "protocol/ValueUtil.h"
 #include "transport/WinSockTransport.h"
 
+#include <cctype>
 #include <chrono>
 #include <utility>
 
 namespace presonus::studiolive::gpext::mixer
 {
+
+namespace
+{
+
+constexpr const char *kProjectsListPath = "presets/proj";
+
+} // namespace
 
 MixerService::MixerService(bridge::Logger &logger) : logger_(logger) {}
 
@@ -98,6 +110,71 @@ std::uint16_t MixerService::allocateRequestId()
     return nextRequestId_.fetch_add(1);
 }
 
+void MixerService::onFdListReceived(std::uint16_t requestId, std::vector<std::uint8_t> json)
+{
+    const std::string text(reinterpret_cast<const char *>(json.data()), json.size());
+    const auto files = protocol::parseFdFileList(text);
+    if (!files)
+    {
+        return;
+    }
+
+    {
+        std::lock_guard lock(fdWaitMutex_);
+        if (fdWait_ && fdWait_->requestId == requestId)
+        {
+            fdWait_->entries = *files;
+            fdWait_->done.store(true);
+        }
+    }
+}
+
+bool MixerService::fetchFileListBlocking(const std::string &path,
+                                        std::vector<protocol::FdFileEntry> &out)
+{
+    if (!isConnected())
+    {
+        return false;
+    }
+
+    const std::uint16_t requestId = allocateRequestId();
+    auto waitState = std::make_unique<FdWaitState>();
+    waitState->requestId = requestId;
+
+    {
+        std::lock_guard lock(fdWaitMutex_);
+        fdWait_ = std::move(waitState);
+    }
+
+    const auto packet = protocol::createFileListRequestPacket(requestId, path);
+    enqueue([this, packet = std::move(packet)]() {
+        if (connection_)
+        {
+            connection_->sendRaw(packet);
+        }
+    });
+
+    for (int i = 0; i < 500; ++i)
+    {
+        {
+            std::lock_guard lock(fdWaitMutex_);
+            if (fdWait_ && fdWait_->done.load())
+            {
+                out = fdWait_->entries;
+                fdWait_.reset();
+                return !out.empty();
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    {
+        std::lock_guard lock(fdWaitMutex_);
+        fdWait_.reset();
+    }
+    return false;
+}
+
 bool MixerService::connect(const std::string &host, std::uint16_t port)
 {
     ensureThread();
@@ -119,6 +196,11 @@ bool MixerService::connect(const std::string &host, std::uint16_t port)
         }
 
         stateCache_.clear();
+        {
+            std::lock_guard lock(catalogMutex_);
+            projects_.clear();
+            scenesByProject_.clear();
+        }
 
         protocol::ConnectionHandshake handshake;
         connection_->setSessionPacketCallback(
@@ -128,6 +210,9 @@ bool MixerService::connect(const std::string &host, std::uint16_t port)
             });
         connection_->setJsonMessageCallback([&handshake](std::string_view json) {
             handshake.onJmJson(json);
+        });
+        connection_->setFdListCallback([this](protocol::FdListResult result) {
+            onFdListReceived(result.requestId, std::move(result.json));
         });
         connection_->setKeepAliveEnabled(false);
 
@@ -184,6 +269,11 @@ void MixerService::disconnect()
         }
         connected_ = false;
         stateCache_.clear();
+        {
+            std::lock_guard lock(catalogMutex_);
+            projects_.clear();
+            scenesByProject_.clear();
+        }
         logger_.info("Mixer disconnected");
     });
 }
@@ -193,6 +283,30 @@ bool MixerService::isConnected() const
     return connected_.load();
 }
 
+void MixerService::sendPvFloat(const std::string &key, float value)
+{
+    stateCache_.setFloat(key, static_cast<double>(value));
+    const auto packet = protocol::createPvPacket(key, value);
+    enqueue([this, packet = std::move(packet)]() {
+        if (connection_)
+        {
+            connection_->sendRaw(packet);
+        }
+    });
+}
+
+void MixerService::sendPvBool(const std::string &key, bool value)
+{
+    stateCache_.setBool(key, value);
+    const auto packet = protocol::createPvBoolPacket(key, value);
+    enqueue([this, packet = std::move(packet)]() {
+        if (connection_)
+        {
+            connection_->sendRaw(packet);
+        }
+    });
+}
+
 bool MixerService::setLineMute(int channel, bool muted)
 {
     if (channel < 1 || !isConnected())
@@ -200,15 +314,7 @@ bool MixerService::setLineMute(int channel, bool muted)
         return false;
     }
 
-    const auto key = protocol::lineChannelMuteKey(channel);
-    stateCache_.setBool(key, muted);
-    const auto packet = protocol::createPvBoolPacket(key, muted);
-    enqueue([this, packet = std::move(packet)]() {
-        if (connection_)
-        {
-            connection_->sendRaw(packet);
-        }
-    });
+    sendPvBool(protocol::lineChannelMuteKey(channel), muted);
     return true;
 }
 
@@ -221,6 +327,128 @@ std::optional<bool> MixerService::getLineMute(int channel) const
     return stateCache_.boolKey(protocol::lineChannelMuteKey(channel));
 }
 
+bool MixerService::setLineLevelLinear(int channel, double levelPercent)
+{
+    if (channel < 1 || !isConnected())
+    {
+        return false;
+    }
+
+    const float scalar = protocol::linearPercentToVolumeScalar(levelPercent);
+    stateCache_.setFloat(protocol::lineChannelLevelKey(channel), levelPercent);
+    sendPvFloat(protocol::lineChannelVolumeKey(channel), scalar);
+    return true;
+}
+
+std::optional<double> MixerService::getLineLevelLinear(int channel) const
+{
+    if (channel < 1)
+    {
+        return std::nullopt;
+    }
+
+    if (const auto level = stateCache_.doubleKey(protocol::lineChannelLevelKey(channel)))
+    {
+        return *level;
+    }
+    if (const auto volume = stateCache_.doubleKey(protocol::lineChannelVolumeKey(channel)))
+    {
+        return protocol::volumeScalarToLinearPercent(*volume);
+    }
+    return std::nullopt;
+}
+
+bool MixerService::setLineSolo(int channel, bool soloed)
+{
+    if (channel < 1 || !isConnected())
+    {
+        return false;
+    }
+
+    sendPvBool(protocol::lineChannelSoloKey(channel), soloed);
+    return true;
+}
+
+std::optional<bool> MixerService::getLineSolo(int channel) const
+{
+    if (channel < 1)
+    {
+        return std::nullopt;
+    }
+    return stateCache_.boolKey(protocol::lineChannelSoloKey(channel));
+}
+
+bool MixerService::setLinePan(int channel, double panPercent)
+{
+    if (channel < 1 || !isConnected())
+    {
+        return false;
+    }
+
+    sendPvFloat(protocol::lineChannelPanKey(channel), protocol::panPercentToScalar(panPercent));
+    return true;
+}
+
+std::optional<double> MixerService::getLinePan(int channel) const
+{
+    if (channel < 1)
+    {
+        return std::nullopt;
+    }
+    if (const auto pan = stateCache_.doubleKey(protocol::lineChannelPanKey(channel)))
+    {
+        return protocol::panScalarToPercent(*pan);
+    }
+    return std::nullopt;
+}
+
+bool MixerService::setLineColor(int channel, const std::string &rgbHex)
+{
+    if (channel < 1 || !isConnected())
+    {
+        return false;
+    }
+
+    std::uint8_t r = 0;
+    std::uint8_t g = 0;
+    std::uint8_t b = 0;
+    if (!protocol::parseRgbHex(rgbHex, r, g, b))
+    {
+        return false;
+    }
+
+    const auto key = protocol::lineChannelColorKey(channel);
+    const auto packet = protocol::createPcPacket(key, r, g, b);
+
+    std::string normalized;
+    normalized.reserve(6);
+    for (char c : rgbHex)
+    {
+        if (c != '#')
+        {
+            normalized.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+        }
+    }
+    stateCache_.setString(key, normalized);
+
+    enqueue([this, packet = std::move(packet)]() {
+        if (connection_)
+        {
+            connection_->sendRaw(packet);
+        }
+    });
+    return true;
+}
+
+std::optional<std::string> MixerService::getLineColor(int channel) const
+{
+    if (channel < 1)
+    {
+        return std::nullopt;
+    }
+    return stateCache_.stringKey(protocol::lineChannelColorKey(channel));
+}
+
 bool MixerService::requestFileList(const std::string &path)
 {
     if (!isConnected())
@@ -230,6 +458,109 @@ bool MixerService::requestFileList(const std::string &path)
 
     const std::uint16_t requestId = allocateRequestId();
     const auto packet = protocol::createFileListRequestPacket(requestId, path);
+    enqueue([this, packet = std::move(packet)]() {
+        if (connection_)
+        {
+            connection_->sendRaw(packet);
+        }
+    });
+    return true;
+}
+
+std::string MixerService::sceneListPath(const std::string &projectFile)
+{
+    return std::string(kProjectsListPath) + "/" + projectFile;
+}
+
+std::string MixerService::sceneRecallPath(const std::string &projectFile,
+                                          const std::string &sceneFile)
+{
+    return sceneListPath(projectFile) + "/" + sceneFile;
+}
+
+int MixerService::getProjectCount()
+{
+    {
+        std::lock_guard lock(catalogMutex_);
+        if (!projects_.empty())
+        {
+            return static_cast<int>(projects_.size());
+        }
+    }
+
+    std::vector<protocol::FdFileEntry> fetched;
+    if (!fetchFileListBlocking(kProjectsListPath, fetched))
+    {
+        return 0;
+    }
+
+    {
+        std::lock_guard lock(catalogMutex_);
+        projects_ = std::move(fetched);
+        return static_cast<int>(projects_.size());
+    }
+}
+
+std::string MixerService::getProjectName(int index)
+{
+    std::lock_guard lock(catalogMutex_);
+    if (index < 1 || static_cast<std::size_t>(index) > projects_.size())
+    {
+        return {};
+    }
+    return projects_[static_cast<std::size_t>(index) - 1].name;
+}
+
+int MixerService::getSceneCount(const std::string &projectFile)
+{
+    {
+        std::lock_guard lock(catalogMutex_);
+        const auto it = scenesByProject_.find(projectFile);
+        if (it != scenesByProject_.end())
+        {
+            return static_cast<int>(it->second.size());
+        }
+    }
+
+    std::vector<protocol::FdFileEntry> fetched;
+    if (!fetchFileListBlocking(sceneListPath(projectFile), fetched))
+    {
+        return 0;
+    }
+
+    {
+        std::lock_guard lock(catalogMutex_);
+        scenesByProject_[projectFile] = std::move(fetched);
+        return static_cast<int>(scenesByProject_[projectFile].size());
+    }
+}
+
+std::string MixerService::getSceneName(const std::string &projectFile, int index)
+{
+    std::lock_guard lock(catalogMutex_);
+    const auto it = scenesByProject_.find(projectFile);
+    if (it == scenesByProject_.end())
+    {
+        return {};
+    }
+    if (index < 1 || static_cast<std::size_t>(index) > it->second.size())
+    {
+        return {};
+    }
+    return it->second[static_cast<std::size_t>(index) - 1].name;
+}
+
+bool MixerService::recallProjectScene(const std::string &projectFile,
+                                      const std::string &sceneFile)
+{
+    if (!isConnected())
+    {
+        return false;
+    }
+
+    const std::uint16_t requestId = allocateRequestId();
+    const auto path = sceneRecallPath(projectFile, sceneFile);
+    const auto packet = protocol::createFileOpenRequestPacket(requestId, path);
     enqueue([this, packet = std::move(packet)]() {
         if (connection_)
         {

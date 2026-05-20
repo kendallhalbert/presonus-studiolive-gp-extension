@@ -25,7 +25,7 @@ void FdAssembler::reset()
     highestEnd_ = 0;
 }
 
-std::optional<std::vector<std::uint8_t>> FdAssembler::addChunk(std::span<const std::uint8_t> payload)
+std::optional<FdAssemblyResult> FdAssembler::addChunk(std::span<const std::uint8_t> payload)
 {
     // 14-byte FD frames with no body are stream trailers.
     if (payload.size() == kHeaderSize)
@@ -67,9 +67,11 @@ std::optional<std::vector<std::uint8_t>> FdAssembler::addChunk(std::span<const s
     if (highestEnd_ >= totalSize)
     {
         buffer_.resize(totalSize);
-        std::vector<std::uint8_t> complete = std::move(buffer_);
+        FdAssemblyResult result;
+        result.requestId = requestId_.value_or(chunkRequestId);
+        result.json = std::move(buffer_);
         reset();
-        return complete;
+        return result;
     }
 
     return std::nullopt;

@@ -13,7 +13,7 @@ namespace
 TEST(FdAssembler, ProjectsListReassemblesJson)
 {
     presonus::studiolive::gpext::protocol::FdAssembler assembler;
-    std::optional<std::vector<std::uint8_t>> json;
+    std::optional<presonus::studiolive::gpext::protocol::FdAssemblyResult> assembled;
 
     for (const char *name : {"000.bin", "002.bin", "001.bin"})
     {
@@ -23,13 +23,14 @@ TEST(FdAssembler, ProjectsListReassemblesJson)
         EXPECT_EQ(wire->messageCode, "FD");
         if (const auto chunk = assembler.addChunk(wire->payload))
         {
-            json = *chunk;
+            assembled = *chunk;
             break;
         }
     }
 
-    ASSERT_TRUE(json.has_value());
-    const std::string text(reinterpret_cast<const char *>(json->data()), json->size());
+    ASSERT_TRUE(assembled.has_value());
+    const std::string text(reinterpret_cast<const char *>(assembled->json.data()),
+                           assembled->json.size());
     const auto files = presonus::studiolive::gpext::protocol::parseFdFileList(text);
     ASSERT_TRUE(files.has_value());
     ASSERT_GE(files->size(), 2u);

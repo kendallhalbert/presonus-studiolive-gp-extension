@@ -22,6 +22,7 @@ inline constexpr std::uint16_t kMixerTcpPort = 53000;
 
 struct FdListResult
 {
+    std::uint16_t requestId = 0;
     std::vector<std::uint8_t> json;
 };
 

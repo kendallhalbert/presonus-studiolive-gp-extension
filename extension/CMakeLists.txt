@@ -28,6 +28,9 @@ add_library(psl_bridge STATIC
 add_library(psl_protocol STATIC
   src/protocol/MessageProtocol.cpp
   src/protocol/ParamKey.cpp
+  src/protocol/ParamKeys.cpp
+  src/protocol/ValueUtil.cpp
+  src/protocol/PcEncoder.cpp
   src/protocol/HexUtil.cpp
   src/protocol/PvParser.cpp
   src/protocol/PvEncoder.cpp
