@@ -32,20 +32,26 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-20 | **Bookmark refresh.** Phase 1 next: TCP client + KeepAlive, FD/JM handlers, then `Client`/`Transport`. |
 | 2026-05-20 | Phase 1: `Transport`, `WinSockTransport`, `MixerConnection`, `KeepAlive`, `FdAssembler`/`FdParser`; **25 tests** green. |
 | 2026-05-20 | Phase 2 slice: `PvEncoder`, `FileRequest`, `MixerService` IO thread, GPScript Connect/SetLineMute; **29 tests** green. |
+| 2026-05-20 | File logging (`extension.log`), `SetLogLevel` / `LogFilePath`; **31 tests** green (`f1d048e`). |
+| 2026-05-20 | UCNet handshake on connect (JM Subscribe, ZB + `SubscriptionReply`, gated keepalive); **36 tests** green (`0d4a79b`). |
+| 2026-05-20 | **Hardware smoke test passed** on **StudioLive 32R** @ `10.0.0.14` — line 1 mute from GPScript moves desk. See `docs/HARDWARE_SMOKE_TEST.md`. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-20 (Phase 2 vertical slice — mute from GPScript)**
+**Last updated: 2026-05-20 (Phase 2 — handshake + 32R mute confirmed)**
 
 ### TL;DR
 
 Phase 0 **complete** on GP 5 Pro. Phase 1 wire + TCP session layer **done**.
-**Phase 2 started:** outgoing PV mute, `MixerService` on IO thread, GPScript
-`PreSonusStudioLive_Connect` / `SetLineMute` / `IsConnected` / `Disconnect` —
-**29 tests** green. **Next:** test on real 32R, expand commands (level/solo),
-KVTree/state cache, handshake/subscribe.
+**Phase 2 in progress:** UCNet **handshake wired into `Connect`**, outgoing PV
+mute, `MixerService` IO thread, file log under `%APPDATA%\PreSonusStudioLive\`.
+GPScript: `PreSonusStudioLive_Connect` / `SetLineMute` / `IsConnected` /
+`Disconnect` / `SetLogLevel` / `LogFilePath` — **36 tests** green.
+**Hardware verified:** 32R @ `10.0.0.14`, input 1 mute toggles on desk.
+**Next:** state cache + getters (`GetLineMute`, levels), more commands (solo,
+fader), UDP discovery (Phase 4).
 
 ### What's done
 
@@ -61,10 +67,12 @@ KVTree/state cache, handshake/subscribe.
 | Visual Studio 2026 Community + "Desktop development with C++" workload installed (CMake 4.2.3 + Ninja bundled) | Local: `C:\Program Files\Microsoft Visual Studio\18\Community` |
 | **Phase 0 scaffold + empty DLL** | `presonus-studiolive-gp-extension` (GoogleTest green; **GP 5 smoke test confirmed 2026-05-20**) |
 | **Phase 0 GP acceptance** | GP 5 Pro — `PreSonusStudioLive_Version()` → `1.0.0-phase0` (Release DLL, SDK v62, `Name="PreSonus StudioLive"`) |
-| **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` — `main` green; clones `beta-sdk-v62`, Ninja Debug + 18 tests |
-| **Wire-level fixtures** | `tests/fixtures/` — StudioLive 32R, fw 3.3.0.109659 |
-| **GP-bridge (partial)** | `extension/src/bridge/` — Logger, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore |
-| **Phase 1 (partial)** | `extension/src/protocol/` + `extension/src/transport/` — parsers, `MixerConnection`, `KeepAlive`, `FdAssembler`; **25 tests** |
+| **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` — `main` @ `0d4a79b`; clones `beta-sdk-v62`, MSVC dev cmd + `ctest -C Debug` |
+| **Wire-level fixtures** | `tests/fixtures/` — StudioLive 32R, fw 3.3.0.109659; `04-jm-subscription-reply/` added for handshake tests |
+| **GP-bridge** | `extension/src/bridge/` — Logger, FileLogSink, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore, AppPaths |
+| **Phase 1** | `extension/src/protocol/` + `extension/src/transport/` — parsers, `MixerConnection`, `KeepAlive`, `FdAssembler`, `JmPacket`, `ConnectionHandshake` |
+| **Phase 2 (slice)** | `MixerService` IO thread, handshake on connect, PV mute encode, GPScript connect/mute/log APIs |
+| **Hardware smoke test** | **Passed 2026-05-20** — see `docs/HARDWARE_SMOKE_TEST.md` |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
 ### GP smoke test notes (2026-05-20, confirmed)
@@ -97,7 +105,7 @@ git checkout beta-sdk-v62
 cd C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension
 cmake -S . -B build-rel -G "Visual Studio 17 2022" -A x64
 cmake --build build-rel --config Release --parallel
-# DLL: build-rel\bin\Release\PreSonusStudioLive.dll (~42 KB Release vs ~905 KB Debug)
+# DLL: build-rel\bin\Release\PreSonusStudioLive.dll (~200 KB Release with protocol stack; ~905 KB Debug)
 ```
 
 After copying DLL: **Options → Reload Third Party Libraries** (or restart GP).
@@ -106,6 +114,22 @@ StudioLive**, version `1.0.0-phase0`.
 
 **Smoke test confirmed** with Release + SDK v62 + `Name=` product XML on GP 5 Pro:
 `PreSonusStudioLive_Version()` prints `1.0.0-phase0` in the GP log.
+
+### Hardware smoke test (2026-05-20, confirmed)
+
+Mixer: **StudioLive 32R**, fw **3.3.0.109659**, IP **`10.0.0.14`**. Full runbook:
+`docs/HARDWARE_SMOKE_TEST.md`.
+
+| Step | Result |
+| ---- | ------ |
+| `Connect("10.0.0.14")` | `true` (handshake completes in ~few s) |
+| `IsConnected()` | `true` |
+| `SetLineMute(1, 1/0)` | `true`; **mute LED/state changes on desk** |
+| `extension.log` | `%APPDATA%\PreSonusStudioLive\extension.log` — connect + debug lines |
+
+GPScript notes: functions with return values must be used in `Print(...)` or
+assignments (not bare statements). `Connect` waits for ZB + `SubscriptionReply`
+before returning success.
 
 ### Fixture capture notes (2026-05-18)
 
@@ -136,7 +160,7 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 ```
 Branch:  main (tracks origin/main)
 Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
-HEAD:    f9a760e (CI green)
+HEAD:    0d4a79b (handshake + 36 tests; CI expected green)
 ```
 
 **GP install DLL** (local Release, SDK v62):
@@ -174,8 +198,10 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
-| GP-bridge remainder | Agent | Widget binding registry, feedback-loop suppression (Phase 3) |
-| Phase 1 protocol port | Agent | `sendList`/FR encode, JM handler, KVTree/cache; wire IO thread in extension |
+| KVTree / state cache | Agent | Incoming PV/PS/PC/MS → cache; required for getters and widget sync |
+| GPScript getters + more setters | Agent | `GetLineMute`, `SetLineLevel`, solo, pan (Phase 2) |
+| UDP discovery | Agent | Phase 4 — fixture `01-discovery-broadcast` still skipped |
+| Widget binding | Agent | Phase 3 — registry, feedback-loop suppression |
 | Optional fixture re-capture (`01`, `06`, `18`) | User | Low priority |
 
 ### Phase 0 GP-side smoke test (updated 2026-05-20)
@@ -219,9 +245,11 @@ extension enabled, script editor reopened after reload, and Product XML uses
 6. ~~**Agent**: copy fixtures.~~ **Done 2026-05-18**.
 7. ~~**Agent**: commit GP smoke-test fixes.~~ **Done 2026-05-20** (`84219c0`).
 8. ~~**Agent**: GP-bridge infrastructure.~~ **Mostly done 2026-05-20** — drain at GP entry points (no SDK timer); ScriptFunctions + ConfigStore landed.
-9. ~~**Agent**: Phase 1 protocol port~~ **mostly done** (TCP session + encoders landed).
-10. **Agent**: Phase 2 — **in progress** (Connect + line mute slice; expand API + state cache).
-11. Continue Phases 3–5 per §5.
+9. ~~**Agent**: Phase 1 protocol port~~ **Done** (TCP session, KeepAlive, FD, JM subscribe path).
+10. ~~**User**: hardware smoke test on 32R~~ **Done 2026-05-20** — mute on desk confirmed @ `10.0.0.14`.
+11. ~~**Agent**: UCNet handshake on `Connect`~~ **Done 2026-05-20** (`0d4a79b`).
+12. **Agent**: Phase 2 — **in progress** (state cache, getters, level/solo commands).
+13. Continue Phases 3–5 per §5.
 
 ### How to reproduce the verified build from scratch
 
