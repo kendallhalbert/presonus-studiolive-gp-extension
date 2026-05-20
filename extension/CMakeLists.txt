@@ -35,7 +35,8 @@ add_library(psl_protocol STATIC
   src/protocol/Ubjson.cpp
   src/protocol/ZlibState.cpp
   src/protocol/CkAssembler.cpp
-  src/protocol/ZbParser.cpp)
+  src/protocol/ZbParser.cpp
+  src/protocol/SessionPacketDecoder.cpp)
 
 target_include_directories(psl_protocol
   PUBLIC
