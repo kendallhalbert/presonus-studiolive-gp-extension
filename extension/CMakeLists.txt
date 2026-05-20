@@ -2,6 +2,17 @@
 #  extension/  -  the PreSonusStudioLive.dll target itself
 # ============================================================================
 
+include(FetchContent)
+FetchContent_Declare(
+  zlib
+  GIT_REPOSITORY https://github.com/madler/zlib.git
+  GIT_TAG        v1.3.1
+  GIT_SHALLOW    TRUE)
+set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(ZLIB_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(SKIP_INSTALL_ALL ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(zlib)
+
 add_library(psl_bridge STATIC
   src/bridge/Logger.cpp
   src/bridge/Dispatcher.cpp
@@ -19,11 +30,23 @@ add_library(psl_protocol STATIC
   src/protocol/PsParser.cpp
   src/protocol/MsParser.cpp
   src/protocol/DataClient.cpp
-  src/protocol/PacketParser.cpp)
+  src/protocol/PacketParser.cpp
+  src/protocol/ZlibInflate.cpp
+  src/protocol/Ubjson.cpp
+  src/protocol/ZlibState.cpp
+  src/protocol/CkAssembler.cpp
+  src/protocol/ZbParser.cpp)
 
 target_include_directories(psl_protocol
   PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+  PRIVATE
+    ${zlib_SOURCE_DIR}
+    ${zlib_BINARY_DIR})
+
+target_link_libraries(psl_protocol
+  PUBLIC
+    zlibstatic)
 
 target_compile_features(psl_protocol PUBLIC cxx_std_20)
 

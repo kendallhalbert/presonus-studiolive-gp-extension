@@ -27,19 +27,21 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-20 | GP 5 integration fixes committed (`84219c0`). CI clones `beta-sdk-v62`. GP-bridge scaffold: Logger, Dispatcher, GpHost/RealGpHost/MockGpHost + unit tests. |
 | 2026-05-20 | GP-bridge expanded: ExtensionContext drain at GP entry points, ScriptFunctions, ConfigStore. Phase 1 started: MessageProtocol + PvParser with fixture tests (10 tests). |
 | 2026-05-20 | Phase 1: PC/PS/MS parsers, PacketParser dispatch, DataClient TCP deframer; 15 unit tests green. |
+| 2026-05-20 | Phase 1: ZB/CK zlib + UBJSON + ZlibState (`CkAssembler`, `ZbParser`, zlib FetchContent); **17 tests** green. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-20 (Phase 1 param + framing parsers)**
+**Last updated: 2026-05-20 (Phase 1 ZB/CK + UBJSON)**
 
 ### TL;DR
 
 Phase 0 **complete** on GP 5 Pro. GP-bridge done for now. Phase 1 progress:
-`MessageProtocol`, PV/PC/PS/MS parsers, `DataClient` deframer, `parseWirePacket`
-— **15 tests** green against fixtures. **Next:** ZB/CK + UBJSON/ZlibState, then
-TCP client + KeepAlive.
+`MessageProtocol`, PV/PC/PS/MS parsers, `DataClient` deframer, `parseWirePacket`,
+ZB/CK inflate path (`CkAssembler`, `Ubjson`, `ZlibState`, `ZbParser`) —
+**17 tests** green. **Next:** wire CK/ZB into session decoder / `PacketParser`,
+TCP client + KeepAlive, FD/JM handlers.
 
 ### What's done
 
@@ -58,7 +60,7 @@ TCP client + KeepAlive.
 | **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` (`main` @ `cc639d4` on remote; local edits ahead) |
 | **Wire-level fixtures** | `tests/fixtures/` — StudioLive 32R, fw 3.3.0.109659 |
 | **GP-bridge (partial)** | `extension/src/bridge/` — Logger, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore |
-| **Phase 1 (partial)** | `extension/src/protocol/` — MessageProtocol, PV/PC/PS/MS, DataClient, PacketParser; 15 tests |
+| **Phase 1 (partial)** | `extension/src/protocol/` — MessageProtocol, PV/PC/PS/MS, DataClient, PacketParser, ZB/CK/UBJSON/ZlibState; 17 tests |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
 ### GP smoke test notes (2026-05-20, confirmed)
