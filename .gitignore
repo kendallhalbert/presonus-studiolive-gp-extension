@@ -1,5 +1,6 @@
 # ---------------- compiler / build outputs ----------------
 build/
+build-rel/
 out/
 cmake-build-*/
 *.obj

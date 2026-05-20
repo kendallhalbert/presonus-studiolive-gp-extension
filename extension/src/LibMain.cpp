@@ -66,17 +66,19 @@ LibMain::~LibMain() = default;
 
 std::string LibMain::GetProductDescription()
 {
-    // The XML "name" attribute is what GP prepends to every registered
-    // GPScript function — see SDK README §"Using GPScript functions". Keep
-    // it short and identifier-friendly so users type `psl_Version` rather
-    // than something verbose. The human label lives in <Description>.
+    // GP reads Product Name= (capital N) for the Extensions list label AND for
+    // the GPScript prefix (spaces/special chars stripped). Example: Name="GP HUD"
+    // -> list shows "GP HUD", functions are GPHUD_DisplayText().
+    // Name="PreSonus StudioLive" -> PreSonusStudioLive_Version().
     const std::string v = versionString();
     std::string xml;
     xml += "<Library>";
-    xml += "<Product name=\"psl\" Version=\"" + v + "\" BuildDate=\"" __DATE__ "\"></Product>";
-    xml += "<Description>PreSonus StudioLive III control surface (";
+    xml += "<Product Name=\"PreSonus StudioLive\" Version=\"" + v +
+           "\" BuildDate=\"" __DATE__ "\"></Product>";
+    xml += "<Description>PreSonus StudioLive III mixer control for GPScript (";
     xml += v;
     xml += ", Windows).</Description>";
+    xml += "<ImagePath></ImagePath>";
     xml += "</Library>";
     return xml;
 }

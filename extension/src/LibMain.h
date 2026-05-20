@@ -3,7 +3,7 @@
 ///        extension.
 ///
 /// Phase 0: the DLL only needs to be loadable by GP and expose a single
-/// GPScript function (`psl_Version`). Subsequent phases will expand this
+/// GPScript function (`PreSonusStudioLive_Version()`). Subsequent phases will expand this
 /// class to own the mixer Client, the Dispatcher, and the widget-binding
 /// registry — but only via composition over types declared in
 /// `extension/src/bridge/`. LibMain stays thin.

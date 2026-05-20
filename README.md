@@ -15,10 +15,10 @@ going forward; the JS library is retired once fixture capture is complete.
 > [`docs/GP_EXTENSION_PLAN.md`](docs/GP_EXTENSION_PLAN.md) for the full
 > roadmap.
 >
-> The GPScript prefix `psl_` comes from the extension's product XML `name`
-> attribute (see `LibMain.cpp::GetProductDescription`). The friendly label
-> shown in GP's extensions list is set via the `Description` field; the
-> short XML name `psl` exists purely to make GPScript identifiers terse.
+> The GPScript prefix comes from the extension product XML `Name` attribute
+> (capital N — see `LibMain.cpp::GetProductDescription`). GP strips spaces from
+> the name, so `Name="PreSonus StudioLive"` yields `PreSonusStudioLive_Version()`.
+> The `Description` field is the longer blurb shown alongside the name.
 
 ---
 
@@ -60,41 +60,55 @@ ctest --test-dir build --build-config Debug --output-on-failure
 Either way, the DLL ends up at:
 
 ```
-build/bin/Debug/PreSonusStudioLive.dll
+build/bin/Debug/PreSonusStudioLive.dll      # local dev/tests only — do NOT install in GP
+build-rel/bin/Release/PreSonusStudioLive.dll # use this for Gig Performer (see below)
 ```
 
-To install into Gig Performer's Extensions folder (requires admin or
-write access to `C:\Users\All Users\Gig Performer\Extensions\`):
+> **Important:** Gig Performer cannot load a **Debug** build. Debug DLLs depend on
+> `MSVCP140D.dll` / `VCRUNTIME140D.dll` / `ucrtbased.dll`, which are only present
+> when Visual Studio is installed. GP will silently ignore the extension. Always
+> install a **Release** build into the Extensions folder.
+
+Release build (VS 2022 generator example):
 
 ```powershell
-cmake --install build --config Debug --component dev
+cmake -S . -B build-rel -G "Visual Studio 17 2022" -A x64
+cmake --build build-rel --config Release --parallel
 ```
+
+To install into Gig Performer's Extensions folder:
+
+```powershell
+cmake --install build-rel --config Release --component dev
+```
+
+(requires write access to `C:\Users\Public\Documents\Gig Performer\Extensions\`)
 
 ---
 
 ## Manual smoke test (Phase 0 acceptance)
 
-1. Build Debug as above.
-2. Copy `build/bin/Debug/PreSonusStudioLive.dll` into
-   `C:\Users\All Users\Gig Performer\Extensions\`.
+1. Build **Release** as above (not Debug).
+2. Copy `build-rel/bin/Release/PreSonusStudioLive.dll` into
+   `C:\Users\Public\Documents\Gig Performer\Extensions\`.
 3. Start Gig Performer.
-4. Open **Options → Extensions** — `PreSonus StudioLive` should appear
-   in the list with a version of `1.0.0-phase0` and a description. Tick
-   the box to enable it. Restart GP if prompted.
+4. Open **Options → Extensions** — **PreSonus StudioLive** should appear
+   in the list with version `1.0.0-phase0`. Tick the box to enable it.
+   Restart GP if prompted.
 5. Create a scratch rackspace, open the GPScript window for the rackspace,
    and add:
 
     ```gigperformer
     Initialization
-        Print(psl_Version())
+        Print(PreSonusStudioLive_Version())
     End
     ```
 
 6. Save the rackspace. The GP log should print
    `1.0.0-phase0`.
 
-Until step 5 passes, Phase 0 is not actually done — only the local build
-is verified.
+Steps 1–6 are the Phase 0 acceptance criteria (GP load + GPScript version call).
+Confirmed on Gig Performer 5 Pro, 2026-05-20.
 
 ---
 

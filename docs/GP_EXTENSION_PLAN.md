@@ -22,20 +22,22 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-18 | Phase 0 scaffold committed and pushed to `kendallhalbert/presonus-studiolive-gp-extension` on GitHub. CI workflow active. |
 | 2026-05-18 | Fixtures captured against **StudioLive 32R** (firmware **3.3.0.109659**, serial RA3E18090022) and committed to `tests/fixtures/` in the C++ repo. Four optional fixtures skipped (see below). |
 | 2026-05-18 | **Bookmarked / paused by user.** Capture session verified on-console (fader moved on mixer). GP smoke test and Phase 1 not started. See "Repo state at bookmark" below. |
+| 2026-05-20 | **Bookmarked / paused by user.** GP 5 smoke test in progress — Release DLL + SDK v62 + product XML fixes landed locally (uncommitted). See "GP smoke test notes" below. |
+| 2026-05-20 | Phase 0 GP smoke test **confirmed** on **Gig Performer 5 Pro** — `PreSonusStudioLive_Version()` prints `1.0.0-phase0`. Integration fixes still local/uncommitted. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-18 ~16:00 local (paused by user)**
+**Last updated: 2026-05-20 (Phase 0 GP smoke test confirmed)**
 
 ### TL;DR
 
-Phase 0 is done, on GitHub, and fixtures are committed. Mixer capture succeeded
-on a **StudioLive 32R** — user confirmed the fader moved on the console.
-**Next when resuming:** (a) GP-side smoke test (user), then (b) GP-bridge
-infrastructure + Phase 1 protocol port (agent). JS repo stays local-only (do
-not push).
+Phase 0 is **complete** on GP 5 Pro: extension loads, enables, and
+`PreSonusStudioLive_Version()` returns `1.0.0-phase0`. Fixtures and GitHub
+remote are in place (**StudioLive 32R**). Release + SDK v62 + product XML
+fixes remain **local uncommitted**. **Next:** commit GP integration fixes,
+update CI for SDK v62, then GP-bridge infrastructure and Phase 1.
 
 ### What's done
 
@@ -49,9 +51,50 @@ not push).
 | npm scripts: `capture`, `capture:dry`, `capture:check`               | `package.json` (JS repo)                                    |
 | Fixed `pnpm-workspace.yaml` (`dtrace-provider` build silenced for Windows) | `pnpm-workspace.yaml` (JS repo)                       |
 | Visual Studio 2026 Community + "Desktop development with C++" workload installed (CMake 4.2.3 + Ninja bundled) | Local: `C:\Program Files\Microsoft Visual Studio\18\Community` |
-| **Phase 0 scaffold + empty DLL**: sibling repo created, `PreSonusStudioLive.dll` builds, `psl_Version()` registered, sanity GoogleTest green | `C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension` |
-| **GitHub remote + CI**: `kendallhalbert/presonus-studiolive-gp-extension`, `main` pushed, Actions workflow active | GitHub |
-| **Wire-level fixtures**: captured 2026-05-18 against StudioLive 32R (fw 3.3.0.109659); 44 files in `tests/fixtures/` | `tests/fixtures/` |
+| **Phase 0 scaffold + empty DLL** | `presonus-studiolive-gp-extension` (GoogleTest green; **GP 5 smoke test confirmed 2026-05-20**) |
+| **Phase 0 GP acceptance** | GP 5 Pro — `PreSonusStudioLive_Version()` → `1.0.0-phase0` (Release DLL, SDK v62, `Name="PreSonus StudioLive"`) |
+| **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` (`main` @ `cc639d4` on remote; local edits ahead) |
+| **Wire-level fixtures** | `tests/fixtures/` — StudioLive 32R, fw 3.3.0.109659 |
+
+### GP smoke test notes (2026-05-20, confirmed)
+
+User platform: **Gig Performer 5 Pro** (not 4.8). Extensions folder (GP 4.8+
+docs): `C:\Users\Public\Documents\Gig Performer\Extensions\`.
+
+Issues hit and fixes (local, uncommitted):
+
+| Symptom | Cause | Fix |
+| ------- | ----- | --- |
+| Extension not listed / not loading | Wrong folder in original docs (`All Users`); Debug DLL depends on `*D.dll` runtimes | Install **Release** build to `Public\Documents\...\Extensions\` |
+| "Extension too old" dialog | GP 5 requires SDK **v62+**; our build used SDK v47 | Check out `gp-sdk` branch **`beta-sdk-v62`** (`GPSDK_VERSION 62`) and rebuild |
+| Unknown identifier `psl_Version` | Product XML used lowercase `name=` (ignored by GP 5); prefix fell back to DLL basename | Use **`Name=`** (capital N) in `<Product>` |
+| Extension has no recognized name in UI | `Name="psl"` too terse / not human-readable | Use **`Name="PreSonus StudioLive"`** + `<Description>` + empty `<ImagePath>` |
+
+**GPScript prefix rule (verified against gp-hud):** GP strips spaces/special
+chars from Product `Name`. `Name="GP HUD"` → `GPHUD_*`. Ours:
+`Name="PreSonus StudioLive"` → **`PreSonusStudioLive_Version()`** (not
+`psl_Version()`). The original plan's `psl_` shorthand does not match GP's
+prefix mechanism; revisit if we want a shorter prefix later.
+
+**Release build for GP install** (verified on dev box 2026-05-20):
+
+```powershell
+# gp-sdk must be on beta-sdk-v62 before configuring
+cd C:\Users\KenHa\source\repos\gigperformer\gp-sdk
+git checkout beta-sdk-v62
+
+cd C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension
+cmake -S . -B build-rel -G "Visual Studio 17 2022" -A x64
+cmake --build build-rel --config Release --parallel
+# DLL: build-rel\bin\Release\PreSonusStudioLive.dll (~42 KB Release vs ~905 KB Debug)
+```
+
+After copying DLL: **Options → Reload Third Party Libraries** (or restart GP).
+Enable extension under **Options → Extensions**. Expect list row **PreSonus
+StudioLive**, version `1.0.0-phase0`.
+
+**Smoke test confirmed** with Release + SDK v62 + `Name=` product XML on GP 5 Pro:
+`PreSonusStudioLive_Version()` prints `1.0.0-phase0` in the GP log.
 
 ### Fixture capture notes (2026-05-18)
 
@@ -77,32 +120,43 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 
 ### Repo state at bookmark
 
-**C++ repo** (`presonus-studiolive-gp-extension`) — clean, synced with GitHub:
+**C++ repo** (`presonus-studiolive-gp-extension`) — **local edits ahead of
+origin** (not committed at bookmark):
 
 ```
 Branch:  main (tracks origin/main)
 Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
+Remote HEAD: cc639d4 Update resumption bookmark after capture session
 
-9b85664 Initial Phase 0 scaffold
-b817896 Add wire-level fixtures captured 2026-05-18
+Uncommitted (2026-05-20):
+ M CMakeLists.txt              # PSL_INSTALL_DIR -> Public\Documents\...\Extensions
+ M README.md                   # Release build, GP5 prefix, smoke test procedure
+ M docs/GP_EXTENSION_PLAN.md    # this bookmark update
+ M extension/src/LibMain.cpp   # Product Name=, human-readable name, ImagePath
+ M extension/src/LibMain.h
+?? build-rel/                  # Release build tree (gitignored in practice — add to .gitignore if needed)
 ```
 
-Build output lives under `build/` (gitignored). Last known good Debug DLL:
+**GP install DLL** (local Release, SDK v62):
 
 ```
-C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension\build\bin\Debug\PreSonusStudioLive.dll
+C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension\build-rel\bin\Release\PreSonusStudioLive.dll
 ```
 
-**JS repo** (`presonus-studiolive-api`) — local commit, **do not push** (user
-decision). One commit ahead of `origin/master`:
+Legacy Debug DLL (do **not** install in GP — missing `MSVCP140D.dll` on non-dev PCs):
 
 ```
-b1596fb Add Phase 0 prep for GP extension port   (local only)
-?? package-lock.json                             (from npm install during capture; uncommitted)
+...\build\bin\Debug\PreSonusStudioLive.dll
 ```
 
-Capture output remains at `tools/out/fixtures/` in the JS repo (gitignored).
-Canonical copy is `tests/fixtures/` in the C++ repo (committed).
+**GP SDK clone** (sibling, not a submodule):
+
+```
+C:\Users\KenHa\source\repos\gigperformer\gp-sdk
+Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
+```
+
+**JS repo** — unchanged from prior bookmark; **do not push**.
 
 ### Tooling notes at bookmark
 
@@ -111,70 +165,61 @@ Canonical copy is `tests/fixtures/` in the C++ repo (committed).
 | Visual Studio 2026 + CMake 4.2.3 + Ninja | Installed |
 | GitHub CLI (`gh`) v2.92.0 | Installed; authenticated as `kendallhalbert` |
 | Node.js | v16.14.0 on PATH — **too old for pnpm 11**; use `npm run capture*` in JS repo |
+| GP SDK clone | `gp-sdk` on branch **`beta-sdk-v62`** for GP 5 builds (main @ v47 is too old for user's GP 5) |
 | Git author | Not configured globally; commits use transient `-c user.name/email` unless user sets config |
 
 ### What's blocked
 
-| Blocker                                                              | Owner | Notes                                                   |
-| -------------------------------------------------------------------- | ----- | ------------------------------------------------------- |
-| Phase 0 GP-side smoke test                                           | User  | Procedure below — verifies the DLL actually loads in GP (compile-clean ≠ load-clean). |
-| Optional fixture re-capture (`01`, `06`, `18`)                 | User  | Low priority. `04` covered by `13-ms-fader-sweep/` on 32R. |
-| GP-bridge infrastructure + Phase 1 protocol port               | Agent | Unblocked; start when user resumes. Can proceed in parallel with GP smoke test. |
+| Blocker | Owner | Notes |
+| ------- | ----- | ----- |
+| Commit GP integration fixes | User → Agent | Release path, SDK v62 note, product XML, README — local only |
+| CI vs GP 5 | Agent | GitHub Actions still clones `gp-sdk` main (v47); update CI for SDK v62 |
+| Optional fixture re-capture (`01`, `06`, `18`) | User | Low priority |
+| GP-bridge + Phase 1 | Agent | Unblocked — proceed after commit |
 
-### Phase 0 GP-side smoke test (the user-owed step)
+### Phase 0 GP-side smoke test (updated 2026-05-20)
 
-1. Build (or rebuild) Debug:
+1. Ensure `gp-sdk` is on **`beta-sdk-v62`**, then build **Release**:
 
    ```powershell
-   # from a Developer PowerShell for VS 2026 prompt
    cd C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension
-   cmake -S . -B build -G "Ninja Multi-Config" -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
-   cmake --build build --config Debug --parallel
-   ctest --test-dir build --build-config Debug --output-on-failure
+   cmake -S . -B build-rel -G "Visual Studio 17 2022" -A x64
+   cmake --build build-rel --config Release --parallel
    ```
 
-2. Copy `build\bin\Debug\PreSonusStudioLive.dll` into
-   `C:\Users\All Users\Gig Performer\Extensions\` (or run
-   `cmake --install build --config Debug --component dev` from an
-   elevated shell).
-3. Start Gig Performer. Open **Options → Extensions**. Expect to see a
-   row whose product `name` is `psl` and whose description includes
-   "PreSonus StudioLive III control surface (1.0.0-phase0, Windows).".
-   Tick the box to enable it. Restart GP if prompted.
-4. Create a scratch rackspace, open the rackspace's GPScript editor, and
-   add:
+2. Copy **`build-rel\bin\Release\PreSonusStudioLive.dll`** to
+   `C:\Users\Public\Documents\Gig Performer\Extensions\`.
+
+3. Restart GP (or **Options → Reload Third Party Libraries**). Open
+   **Options → Extensions** — expect **PreSonus StudioLive** with version
+   `1.0.0-phase0`. Enable it.
+
+4. Rackspace GPScript:
 
    ```
    Initialization
-       Print(psl_Version())
+       Print(PreSonusStudioLive_Version())
    End
    ```
 
-5. Save the rackspace. The GP log should print `1.0.0-phase0`.
+5. Save rackspace. GP log should print `1.0.0-phase0`.
 
-If the extension row doesn't appear, or `psl_Version()` is undefined
-when typed in GPScript, that's a real Phase-0 failure and the agent
-should debug before any Phase 1 work starts. The two most likely
-culprits to check first:
-
-- The XML `<Product name="psl"/>` attribute and how GP derives the
-  GPScript prefix (we *think* it's the product name; verify and update
-  `LibMain::GetProductDescription` if wrong).
-- The `RequestGPScriptFunctionSignatureList` static storage lifetime —
-  GP keeps the pointer we hand it; ours is a static array, which should
-  be fine, but worth double-checking if GP reports "no functions".
+If `PreSonusStudioLive_Version` is still unknown: confirm Release DLL date,
+extension enabled, script editor reopened after reload, and Product XML uses
+`Name=` not `name=`.
 
 ### Resume path (priority order)
 
 1. ~~**User**: install Visual Studio Community with the "Desktop development with C++" workload.~~ **Done 2026-05-13** — VS 2026 (v18.6) installed with bundled CMake 4.2.3 + Ninja.
 2. ~~**Agent**: scaffold the sibling repo + Phase 0 DLL.~~ **Done 2026-05-13** — see new repo at `C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension`.
 3. ~~**User → Agent**: explicitly authorise the initial commit of the new C++ repo.~~ **Done 2026-05-18** — `9b85664 Initial Phase 0 scaffold`, pushed to GitHub.
-4. **User**: do the Phase 0 GP-side smoke test above. Until it passes we don't know the DLL is loadable by GP, only that it compiles.
-5. ~~**User**: schedule and run the mixer capture session.~~ **Done 2026-05-18** — StudioLive 32R, fw 3.3.0.109659. Four optional fixtures skipped.
-6. ~~**Agent**: copy fixtures into `tests/fixtures/` and commit.~~ **Done 2026-05-18**.
-7. **Agent**: implement the GP-bridge infrastructure (Logger, Dispatcher, ConfigStore, GpHost interface + RealGpHost + MockGpHost, GPScript stack ABI helpers, function registration table, input validation library, song↔scene binding state machine), all with GoogleTest coverage. Files will land under `extension/src/bridge/` (currently a `.gitkeep` placeholder).
-8. **Agent**: implement Phase 1 (protocol port: Ubjson, ZlibState, MessageProtocol, DataClient, KeepAlive, Client lifecycle), tested against the captured fixtures.
-9. Continue through Phases 2–5 per §5.
+4. ~~**User**: GP-side smoke test.~~ **Done 2026-05-20** — `PreSonusStudioLive_Version()` confirmed on GP 5 Pro.
+5. ~~**User**: mixer capture session.~~ **Done 2026-05-18**.
+6. ~~**Agent**: copy fixtures.~~ **Done 2026-05-18**.
+7. **Agent**: commit GP smoke-test fixes (Release docs, SDK branch, product XML, install path).
+8. **Agent**: GP-bridge infrastructure (Logger, Dispatcher, GpHost, …).
+9. **Agent**: Phase 1 protocol port against fixtures.
+10. Continue Phases 2–5 per §5.
 
 ### How to reproduce the verified build from scratch
 
@@ -241,11 +286,13 @@ existing TypeScript library is retired after fixture capture is complete.
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------- |
 | Target repo                    | `C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension` (sibling of the JS repo)                |
 | Platform                       | Windows x64 only                                                                                                |
-| Min Gig Performer version      | 4.8 (SDK v47)                                                                                                   |
-| Language / standard            | C++20, MSVC from Visual Studio 2026 (v18.6) — VS 2022 (v17) compatible if rolled back, but not the build target |
-| Build system                   | CMake ≥ 4.2 (bundled with VS 2026). Default generator: **"Visual Studio 18 2026"**; CI uses **"Ninja Multi-Config"**. `cxx_std_20`. |
-| Output                         | `PreSonusStudioLive.dll`, installed to `C:\Users\All Users\Gig Performer\Extensions\`                           |
-| GPScript prefix                | `psl_`                                                                                                          |
+| Min Gig Performer version      | **4.8+** design target; **user runs GP 5 Pro** — requires SDK **v62** (`beta-sdk-v62` branch), not main @ v47 |
+| Language / standard            | C++20, MSVC from Visual Studio 2026 (v18.6) — VS 2022 (v17) used for `build-rel` Release on dev box |
+| Build system                   | CMake ≥ 4.2. Default generator: **"Visual Studio 18 2026"**; GP Release verified with **"Visual Studio 17 2022"** `-A x64`. CI uses **"Ninja Multi-Config"**. |
+| Output                         | `PreSonusStudioLive.dll` **Release** build → `C:\Users\Public\Documents\Gig Performer\Extensions\` (never install Debug in GP) |
+| GPScript prefix                | Derived from Product **`Name=`** (capital N). Current: `PreSonusStudioLive_` from `Name="PreSonus StudioLive"`. Plan API names still say `psl_*` — rename in Phase 2 registration or accept long prefix. |
+| GP SDK reference               | `add_subdirectory(${GP_SDK_DIR})`; default `C:/Users/KenHa/source/repos/gigperformer/gp-sdk`. **For GP 5: checkout `beta-sdk-v62` locally** before building. CI still clones main — update separately. |
+| Third-party deps               | CMake `FetchContent` for zlib and GoogleTest. No vcpkg.                                                         |
 | Concurrency model              | Single mixer connection; one IO worker thread + one GP-thread dispatcher queue                                  |
 | Connection lifecycle           | Auto-discover + auto-connect to first found mixer on `OnOpen`; `psl_Connect` / `psl_Disconnect` override        |
 | Widget binding direction       | Per-binding `direction` argument: `0 = mixer→widget`, `1 = widget→mixer`, `2 = both`                            |
@@ -253,8 +300,6 @@ existing TypeScript library is retired after fixture capture is complete.
 | Song ↔ scene auto-recall       | Phase 3 — `psl_BindSongToScene`, in-memory bindings, user re-applies from GPScript on each gig load             |
 | Source of truth                | C++ extension is canonical; JS library retired after fixture capture                                            |
 | Trust model                    | Private-network deployment; no auth/TLS, plaintext config, no DPAPI                                             |
-| GP SDK reference               | `add_subdirectory(${GP_SDK_DIR})` with absolute default `C:/Users/KenHa/source/repos/gigperformer/gp-sdk`; overridable via `-DGP_SDK_DIR=...` |
-| Third-party deps               | CMake `FetchContent` for zlib and GoogleTest. No vcpkg.                                                         |
 
 ---
 
@@ -427,7 +472,7 @@ psl_SetLogLevel(level : String)              // "info","debug","warn","error","n
 - Implement `CreateGPExtension` and a `LibMain : GigPerformerAPI` subclass.
 - One GPScript function: `psl_Version() Returns String` returns `"1.0.0-phase0"`.
 - CMake `install` target copies the DLL to
-  `C:\Users\All Users\Gig Performer\Extensions\`.
+  `C:\Users\Public\Documents\Gig Performer\Extensions\`.
 - Verify in GP: extension appears in extensions list, can be enabled, the
   GPScript function is callable.
 
@@ -644,7 +689,7 @@ Idempotent — safe to re-run if a capture comes out incomplete.
   No vcpkg, no Conan.
 - **Output artifact**: `PreSonusStudioLive.dll`.
 - **Install target**: `cmake --install build --component dev` copies the DLL
-  to `C:\Users\All Users\Gig Performer\Extensions\`.
+  to `C:\Users\Public\Documents\Gig Performer\Extensions\`.
 - **Code style**: `.clang-format` matching the GP SDK's style.
 - **Naming**:
   - C++ types: `PascalCase`.

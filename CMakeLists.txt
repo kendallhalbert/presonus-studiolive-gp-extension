@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.21)
 #  PreSonus StudioLive Gig Performer Extension
 #  ---------------------------------------------------------------------------
 #  Builds  PreSonusStudioLive.dll  which Gig Performer loads from
-#      C:\Users\All Users\Gig Performer\Extensions\
+#      C:\Users\Public\Documents\Gig Performer\Extensions\
 #  See   docs/GP_EXTENSION_PLAN.md   for the design.
 # ============================================================================
 
@@ -74,7 +74,7 @@ option(PSL_BUILD_TESTS  "Build unit tests"                 ON)
 option(PSL_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 
 # Where 'cmake --install' drops the DLL. Override with -DPSL_INSTALL_DIR=... .
-set(PSL_INSTALL_DIR "C:/Users/All Users/Gig Performer/Extensions"
+set(PSL_INSTALL_DIR "C:/Users/Public/Documents/Gig Performer/Extensions"
   CACHE PATH "Directory Gig Performer scans for extension DLLs.")
 
 # ----------------------------------------------------------------------------
