@@ -26,8 +26,9 @@ jobs:
 
       # The GP SDK isn't on the runner; clone it next to our source tree and
       # pass its path to CMake explicitly via -DGP_SDK_DIR=...
-      - name: Clone Gig Performer SDK
-        run: git clone --depth 1 https://github.com/gigperformer/gp-sdk ${{ github.workspace }}/.gp-sdk
+      # GP 5 requires SDK v62+ (beta-sdk-v62). main @ v47 fails "extension too old".
+      - name: Clone Gig Performer SDK (v62)
+        run: git clone --depth 1 --branch beta-sdk-v62 https://github.com/gigperformer/gp-sdk ${{ github.workspace }}/.gp-sdk
         shell: pwsh
 
       - name: Configure

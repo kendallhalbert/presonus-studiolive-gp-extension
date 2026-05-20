@@ -123,7 +123,7 @@ Confirmed on Gig Performer 5 Pro, 2026-05-20.
 │       ├── LibMain.h           # GigPerformerAPI subclass
 │       ├── LibMain.cpp
 │       ├── Version.h           # PSL_VERSION_STRING
-│       └── bridge/             # (Phase 1+) GpHost, Dispatcher, ConfigStore...
+│       └── bridge/             # Logger, Dispatcher, GpHost (more in Phase 1+)
 ├── tests/                      # GoogleTest, brought in via FetchContent
 │   ├── CMakeLists.txt
 │   └── unit/

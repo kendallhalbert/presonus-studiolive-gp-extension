@@ -3,12 +3,14 @@
 
 #include "LibMain.h"
 
+#include "bridge/RealGpHost.h"
 #include "Version.h"
 
 #include "gigperformer/sdk/imports.h"
 
 #include <cstring>
 #include <string>
+#include <string_view>
 
 namespace presonus::studiolive::gpext
 {
@@ -58,7 +60,8 @@ constexpr int kScriptFunctionCount =
 //  LibMain
 // ===========================================================================
 
-LibMain::LibMain(LibraryHandle handle) : gigperformer::sdk::GigPerformerAPI(handle)
+LibMain::LibMain(LibraryHandle handle)
+    : gigperformer::sdk::GigPerformerAPI(handle), handle_(handle)
 {
 }
 
@@ -85,7 +88,14 @@ std::string LibMain::GetProductDescription()
 
 void LibMain::Initialization()
 {
-    // Phase 1+ will spin up the Dispatcher and IO worker here.
+    gpHost_ = std::make_unique<bridge::RealGpHost>(handle_);
+    logger_.setSink([this](bridge::LogLevel /*level*/, std::string_view message) {
+        if (gpHost_ != nullptr)
+        {
+            gpHost_->consoleLog(std::string(message));
+        }
+    });
+    logger_.info("PreSonus StudioLive extension initialized");
 }
 
 void LibMain::OnOpen()

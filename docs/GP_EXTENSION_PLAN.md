@@ -24,20 +24,21 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-18 | **Bookmarked / paused by user.** Capture session verified on-console (fader moved on mixer). GP smoke test and Phase 1 not started. See "Repo state at bookmark" below. |
 | 2026-05-20 | **Bookmarked / paused by user.** GP 5 smoke test in progress — Release DLL + SDK v62 + product XML fixes landed locally (uncommitted). See "GP smoke test notes" below. |
 | 2026-05-20 | Phase 0 GP smoke test **confirmed** on **Gig Performer 5 Pro** — `PreSonusStudioLive_Version()` prints `1.0.0-phase0`. Integration fixes still local/uncommitted. |
+| 2026-05-20 | GP 5 integration fixes committed (`84219c0`). CI clones `beta-sdk-v62`. GP-bridge scaffold: Logger, Dispatcher, GpHost/RealGpHost/MockGpHost + unit tests. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-20 (Phase 0 GP smoke test confirmed)**
+**Last updated: 2026-05-20 (GP-bridge scaffold landed)**
 
 ### TL;DR
 
-Phase 0 is **complete** on GP 5 Pro: extension loads, enables, and
-`PreSonusStudioLive_Version()` returns `1.0.0-phase0`. Fixtures and GitHub
-remote are in place (**StudioLive 32R**). Release + SDK v62 + product XML
-fixes remain **local uncommitted**. **Next:** commit GP integration fixes,
-update CI for SDK v62, then GP-bridge infrastructure and Phase 1.
+Phase 0 **complete** on GP 5 Pro (`PreSonusStudioLive_Version()` → `1.0.0-phase0`).
+GP 5 integration fixes committed; CI uses SDK **v62**. GP-bridge foundation in
+`extension/src/bridge/` (Logger, Dispatcher, GpHost + tests). **Next:** wire
+dispatcher drain on GP timer, ScriptFunctions table, then Phase 1 protocol port
+against fixtures.
 
 ### What's done
 
@@ -55,13 +56,15 @@ update CI for SDK v62, then GP-bridge infrastructure and Phase 1.
 | **Phase 0 GP acceptance** | GP 5 Pro — `PreSonusStudioLive_Version()` → `1.0.0-phase0` (Release DLL, SDK v62, `Name="PreSonus StudioLive"`) |
 | **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` (`main` @ `cc639d4` on remote; local edits ahead) |
 | **Wire-level fixtures** | `tests/fixtures/` — StudioLive 32R, fw 3.3.0.109659 |
+| **GP-bridge (partial)** | `extension/src/bridge/` — Logger, Dispatcher, GpHost/RealGpHost/MockGpHost; 6 unit tests green |
+| **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
 ### GP smoke test notes (2026-05-20, confirmed)
 
 User platform: **Gig Performer 5 Pro** (not 4.8). Extensions folder (GP 4.8+
 docs): `C:\Users\Public\Documents\Gig Performer\Extensions\`.
 
-Issues hit and fixes (local, uncommitted):
+Issues hit and fixes (committed in `84219c0`):
 
 | Symptom | Cause | Fix |
 | ------- | ----- | --- |
@@ -120,21 +123,13 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 
 ### Repo state at bookmark
 
-**C++ repo** (`presonus-studiolive-gp-extension`) — **local edits ahead of
-origin** (not committed at bookmark):
+**C++ repo** (`presonus-studiolive-gp-extension`) — **local commits ahead of
+origin** (push when ready):
 
 ```
 Branch:  main (tracks origin/main)
 Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
-Remote HEAD: cc639d4 Update resumption bookmark after capture session
-
-Uncommitted (2026-05-20):
- M CMakeLists.txt              # PSL_INSTALL_DIR -> Public\Documents\...\Extensions
- M README.md                   # Release build, GP5 prefix, smoke test procedure
- M docs/GP_EXTENSION_PLAN.md    # this bookmark update
- M extension/src/LibMain.cpp   # Product Name=, human-readable name, ImagePath
- M extension/src/LibMain.h
-?? build-rel/                  # Release build tree (gitignored in practice — add to .gitignore if needed)
+Ahead:   GP 5 integration commit + GP-bridge scaffold (pending push)
 ```
 
 **GP install DLL** (local Release, SDK v62):
@@ -172,10 +167,10 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
-| Commit GP integration fixes | User → Agent | Release path, SDK v62 note, product XML, README — local only |
-| CI vs GP 5 | Agent | GitHub Actions still clones `gp-sdk` main (v47); update CI for SDK v62 |
+| Push local commits | User | `84219c0` + bridge scaffold ahead of origin |
+| GP-bridge remainder | Agent | Timer drain, ScriptFunctions, ConfigStore, widget binding registry |
+| Phase 1 protocol port | Agent | Ubjson, DataClient, handlers vs fixtures |
 | Optional fixture re-capture (`01`, `06`, `18`) | User | Low priority |
-| GP-bridge + Phase 1 | Agent | Unblocked — proceed after commit |
 
 ### Phase 0 GP-side smoke test (updated 2026-05-20)
 
@@ -216,8 +211,8 @@ extension enabled, script editor reopened after reload, and Product XML uses
 4. ~~**User**: GP-side smoke test.~~ **Done 2026-05-20** — `PreSonusStudioLive_Version()` confirmed on GP 5 Pro.
 5. ~~**User**: mixer capture session.~~ **Done 2026-05-18**.
 6. ~~**Agent**: copy fixtures.~~ **Done 2026-05-18**.
-7. **Agent**: commit GP smoke-test fixes (Release docs, SDK branch, product XML, install path).
-8. **Agent**: GP-bridge infrastructure (Logger, Dispatcher, GpHost, …).
+7. ~~**Agent**: commit GP smoke-test fixes.~~ **Done 2026-05-20** (`84219c0`).
+8. **Agent**: GP-bridge infrastructure — **in progress** (Logger, Dispatcher, GpHost + tests done; timer drain, ScriptFunctions, ConfigStore remain).
 9. **Agent**: Phase 1 protocol port against fixtures.
 10. Continue Phases 2–5 per §5.
 
@@ -291,7 +286,7 @@ existing TypeScript library is retired after fixture capture is complete.
 | Build system                   | CMake ≥ 4.2. Default generator: **"Visual Studio 18 2026"**; GP Release verified with **"Visual Studio 17 2022"** `-A x64`. CI uses **"Ninja Multi-Config"**. |
 | Output                         | `PreSonusStudioLive.dll` **Release** build → `C:\Users\Public\Documents\Gig Performer\Extensions\` (never install Debug in GP) |
 | GPScript prefix                | Derived from Product **`Name=`** (capital N). Current: `PreSonusStudioLive_` from `Name="PreSonus StudioLive"`. Plan API names still say `psl_*` — rename in Phase 2 registration or accept long prefix. |
-| GP SDK reference               | `add_subdirectory(${GP_SDK_DIR})`; default `C:/Users/KenHa/source/repos/gigperformer/gp-sdk`. **For GP 5: checkout `beta-sdk-v62` locally** before building. CI still clones main — update separately. |
+| GP SDK reference               | `add_subdirectory(${GP_SDK_DIR})`; default `C:/Users/KenHa/source/repos/gigperformer/gp-sdk`. **For GP 5: checkout `beta-sdk-v62` locally** before building. CI clones `beta-sdk-v62`. |
 | Third-party deps               | CMake `FetchContent` for zlib and GoogleTest. No vcpkg.                                                         |
 | Concurrency model              | Single mixer connection; one IO worker thread + one GP-thread dispatcher queue                                  |
 | Connection lifecycle           | Auto-discover + auto-connect to first found mixer on `OnOpen`; `psl_Connect` / `psl_Disconnect` override        |

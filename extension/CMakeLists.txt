@@ -2,6 +2,31 @@
 #  extension/  -  the PreSonusStudioLive.dll target itself
 # ============================================================================
 
+add_library(psl_bridge STATIC
+  src/bridge/Logger.cpp
+  src/bridge/Dispatcher.cpp
+  src/bridge/RealGpHost.cpp)
+
+target_include_directories(psl_bridge
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+target_link_libraries(psl_bridge
+  PUBLIC
+    gigperformer::sdk::c)
+
+target_compile_features(psl_bridge PUBLIC cxx_std_20)
+
+if(MSVC)
+  target_compile_options(psl_bridge PRIVATE
+    /W4 /permissive- /utf-8 /Zc:__cplusplus /Zc:preprocessor /EHsc)
+  target_compile_definitions(psl_bridge PRIVATE
+    _CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
+  if(PSL_WARNINGS_AS_ERRORS)
+    target_compile_options(psl_bridge PRIVATE /WX)
+  endif()
+endif()
+
 add_library(PreSonusStudioLive SHARED
   src/LibMain.h
   src/LibMain.cpp
@@ -9,6 +34,7 @@ add_library(PreSonusStudioLive SHARED
 
 target_link_libraries(PreSonusStudioLive
   PRIVATE
+    psl_bridge
     gigperformer::sdk::cpp)
 
 target_include_directories(PreSonusStudioLive

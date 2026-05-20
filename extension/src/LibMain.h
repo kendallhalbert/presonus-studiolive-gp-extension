@@ -10,7 +10,18 @@
 
 #pragma once
 
+#include "bridge/Dispatcher.h"
+#include "bridge/Logger.h"
+
 #include "gigperformer/sdk/GigPerformerAPI.h"
+#include "gigperformer/sdk/types.h"
+
+#include <memory>
+
+namespace presonus::studiolive::gpext::bridge
+{
+class GpHost;
+}
 
 namespace presonus::studiolive::gpext
 {
@@ -38,6 +49,11 @@ class LibMain final : public gigperformer::sdk::GigPerformerAPI
         ExternalAPI_GPScriptFunctionDefinition **list) override;
 
   private:
+    LibraryHandle handle_{nullptr};
+    std::unique_ptr<bridge::GpHost> gpHost_;
+    bridge::Dispatcher dispatcher_;
+    bridge::Logger logger_;
+
     LibMain(const LibMain &) = delete;
     LibMain &operator=(const LibMain &) = delete;
 };

@@ -37,7 +37,8 @@ function(psl_add_unit_test name)
   add_executable(test_${name} unit/test_${name}.cpp)
   target_link_libraries(test_${name} PRIVATE
     GTest::gtest_main
-    GTest::gmock)
+    GTest::gmock
+    psl_bridge)
   target_compile_features(test_${name} PRIVATE cxx_std_20)
   target_include_directories(test_${name} PRIVATE
     ${CMAKE_SOURCE_DIR}/extension/src)
@@ -63,3 +64,6 @@ endfunction()
 #  Phase 0 sanity test.  Phase 1 will replace / extend this list.
 # ---------------------------------------------------------------------------
 psl_add_unit_test(sanity)
+psl_add_unit_test(dispatcher)
+psl_add_unit_test(logger)
+psl_add_unit_test(gp_host)
