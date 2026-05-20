@@ -37,6 +37,7 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-20 | **Hardware smoke test passed** on **StudioLive 32R** @ `10.0.0.14` — line 1 mute from GPScript moves desk. See `docs/HARDWARE_SMOKE_TEST.md`. |
 | 2026-05-20 | Phase 2: `KvCache` (PV/PS/PC/MS + ZB flatten), `GetLineMute`, optimistic mute cache; **41 tests** green. |
 | 2026-05-20 | Phase 2: LINE level/solo/pan/color GPScript + project/scene list/recall; **48 tests** green. |
+| 2026-05-20 | Bookmark refresh: repo HEAD `03fe9be`, hardware matrix (mute verified; other LINE APIs pending). |
 
 ---
 
@@ -49,8 +50,11 @@ will be copied/symlinked there so it sits next to the implementation.
 Phase 0 **complete** on GP 5 Pro. Phase 1 wire + TCP session layer **done**.
 **Phase 2 in progress:** UCNet handshake, `KvCache`, LINE mute/level/solo/pan/color
 GPScript, blocking FD project/scene lists, `RecallProjectScene` (FR Open).
-**48 tests** green. **Hardware verified:** 32R @ `10.0.0.14`, mute on desk.
-**Next:** generic `type`/`mixType` APIs (§4.3–4.6), dB faders, fades; Phase 3 widgets.
+**48 tests** green (24 executables). **Hardware verified on 32R @ `10.0.0.14`:**
+connect, mute set/get on desk. **Not yet verified on hardware:** level, solo, pan,
+color, project/scene list, scene recall.
+**Next:** hardware pass on new LINE APIs → generic `type`/`mixType` (§4.3–4.6), dB
+faders, fades → Phase 3 widgets.
 
 ### What's done
 
@@ -66,12 +70,12 @@ GPScript, blocking FD project/scene lists, `RecallProjectScene` (FR Open).
 | Visual Studio 2026 Community + "Desktop development with C++" workload installed (CMake 4.2.3 + Ninja bundled) | Local: `C:\Program Files\Microsoft Visual Studio\18\Community` |
 | **Phase 0 scaffold + empty DLL** | `presonus-studiolive-gp-extension` (GoogleTest green; **GP 5 smoke test confirmed 2026-05-20**) |
 | **Phase 0 GP acceptance** | GP 5 Pro — `PreSonusStudioLive_Version()` → `1.0.0-phase0` (Release DLL, SDK v62, `Name="PreSonus StudioLive"`) |
-| **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` — `main` @ `0d4a79b`; clones `beta-sdk-v62`, MSVC dev cmd + `ctest -C Debug` |
+| **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` — `main` @ `03fe9be`; clones `beta-sdk-v62`, MSVC dev cmd + `ctest -C Debug` |
 | **Wire-level fixtures** | `tests/fixtures/` — StudioLive 32R, fw 3.3.0.109659; `04-jm-subscription-reply/` added for handshake tests |
 | **GP-bridge** | `extension/src/bridge/` — Logger, FileLogSink, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore, AppPaths |
 | **Phase 1** | `extension/src/protocol/` + `extension/src/transport/` — parsers, `MixerConnection`, `KeepAlive`, `FdAssembler`, `JmPacket`, `ConnectionHandshake` |
-| **Phase 2 (slice)** | `KvCache`, `MixerService` IO thread, handshake, PV mute get/set, GPScript connect/mute/log APIs |
-| **Hardware smoke test** | **Passed 2026-05-20** — see `docs/HARDWARE_SMOKE_TEST.md` |
+| **Phase 2 (slice)** | `KvCache`, handshake, LINE mute/level/solo/pan/color GPScript, FD project/scene list + `RecallProjectScene`, connect/log APIs |
+| **Hardware smoke test** | **Partial 2026-05-20** — connect + mute on desk; see `docs/HARDWARE_SMOKE_TEST.md` |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
 ### GP smoke test notes (2026-05-20, confirmed)
@@ -114,17 +118,22 @@ StudioLive**, version `1.0.0-phase0`.
 **Smoke test confirmed** with Release + SDK v62 + `Name=` product XML on GP 5 Pro:
 `PreSonusStudioLive_Version()` prints `1.0.0-phase0` in the GP log.
 
-### Hardware smoke test (2026-05-20, confirmed)
+### Hardware smoke test (32R @ `10.0.0.14`)
 
-Mixer: **StudioLive 32R**, fw **3.3.0.109659**, IP **`10.0.0.14`**. Full runbook:
-`docs/HARDWARE_SMOKE_TEST.md`.
+Mixer: **StudioLive 32R**, fw **3.3.0.109659**. Runbook: `docs/HARDWARE_SMOKE_TEST.md`.
 
-| Step | Result |
-| ---- | ------ |
-| `Connect("10.0.0.14")` | `true` (handshake completes in ~few s) |
-| `IsConnected()` | `true` |
-| `SetLineMute(1, 1/0)` | `true`; **mute LED/state changes on desk** |
-| `extension.log` | `%APPDATA%\PreSonusStudioLive\extension.log` — connect + debug lines |
+| API | Hardware status | Notes |
+| --- | --------------- | ----- |
+| `Connect` / `IsConnected` | **Verified 2026-05-20** | Handshake ~few s |
+| `SetLineMute` / `GetLineMute` | **Verified 2026-05-20** | Mute LED/state on desk |
+| `SetLineLevelLinear` / `GetLineLevelLinear` | **Not run** | Linear PV `volume`; confirm fader law on desk |
+| `SetLineSolo` / `GetLineSolo` | **Not run** | Key `line/chN/solo` not in capture log |
+| `SetLinePan` / `GetLinePan` | **Not run** | |
+| `SetLineColor` / `GetLineColor` | **Not run** | |
+| `GetProjectCount` / `GetProjectName` | **Not run** | First call blocks ~5s (FD list) |
+| `GetSceneCount` / `GetSceneName` | **Not run** | |
+| `RecallProjectScene` | **Not run** | FR `Open` path not in session capture |
+| `extension.log` | **Verified** | `%APPDATA%\PreSonusStudioLive\extension.log` |
 
 GPScript notes: functions with return values must be used in `Print(...)` or
 assignments (not bare statements). `Connect` waits for ZB + `SubscriptionReply`
@@ -159,7 +168,8 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 ```
 Branch:  main (tracks origin/main)
 Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
-HEAD:    0d4a79b (handshake + 36 tests; CI expected green)
+HEAD:    03fe9be (LINE controls + scene list; 48 tests; CI expected green)
+Recent:  50973d6 KvCache + GetLineMute
 ```
 
 **GP install DLL** (local Release, SDK v62):
@@ -201,6 +211,7 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 | UDP discovery | Agent | Phase 4 — fixture `01-discovery-broadcast` still skipped |
 | Widget binding | Agent | Phase 3 — registry, feedback-loop suppression |
 | Optional fixture re-capture (`01`, `06`, `18`) | User | Low priority |
+| Hardware validation (level/solo/pan/color/scenes) | User | After installing DLL built from `03fe9be` |
 
 ### Phase 0 GP-side smoke test (updated 2026-05-20)
 
