@@ -26,19 +26,20 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-20 | Phase 0 GP smoke test **confirmed** on **Gig Performer 5 Pro** — `PreSonusStudioLive_Version()` prints `1.0.0-phase0`. Integration fixes still local/uncommitted. |
 | 2026-05-20 | GP 5 integration fixes committed (`84219c0`). CI clones `beta-sdk-v62`. GP-bridge scaffold: Logger, Dispatcher, GpHost/RealGpHost/MockGpHost + unit tests. |
 | 2026-05-20 | GP-bridge expanded: ExtensionContext drain at GP entry points, ScriptFunctions, ConfigStore. Phase 1 started: MessageProtocol + PvParser with fixture tests (10 tests). |
+| 2026-05-20 | Phase 1: PC/PS/MS parsers, PacketParser dispatch, DataClient TCP deframer; 15 unit tests green. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-20 (Phase 1 protocol parsing started)**
+**Last updated: 2026-05-20 (Phase 1 param + framing parsers)**
 
 ### TL;DR
 
-Phase 0 **complete** on GP 5 Pro. Pushed to GitHub (`288eecb`+). GP-bridge:
-Logger, Dispatcher, GpHost, ExtensionContext (drain on GP callbacks + GPScript),
-ScriptFunctions, ConfigStore. Phase 1 begun: `MessageProtocol` + `PvParser` with
-fixture-backed tests. **Next:** PC/PS handlers, DataClient/TCP, ZB/UBJSON.
+Phase 0 **complete** on GP 5 Pro. GP-bridge done for now. Phase 1 progress:
+`MessageProtocol`, PV/PC/PS/MS parsers, `DataClient` deframer, `parseWirePacket`
+— **15 tests** green against fixtures. **Next:** ZB/CK + UBJSON/ZlibState, then
+TCP client + KeepAlive.
 
 ### What's done
 
@@ -57,7 +58,7 @@ fixture-backed tests. **Next:** PC/PS handlers, DataClient/TCP, ZB/UBJSON.
 | **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` (`main` @ `cc639d4` on remote; local edits ahead) |
 | **Wire-level fixtures** | `tests/fixtures/` — StudioLive 32R, fw 3.3.0.109659 |
 | **GP-bridge (partial)** | `extension/src/bridge/` — Logger, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore |
-| **Phase 1 (partial)** | `extension/src/protocol/` — MessageProtocol, PvParser; fixture tests green |
+| **Phase 1 (partial)** | `extension/src/protocol/` — MessageProtocol, PV/PC/PS/MS, DataClient, PacketParser; 15 tests |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
 ### GP smoke test notes (2026-05-20, confirmed)
@@ -169,7 +170,7 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
 | GP-bridge remainder | Agent | Widget binding registry, feedback-loop suppression (Phase 3) |
-| Phase 1 protocol port | Agent | PC/PS parsers, Ubjson, ZlibState, DataClient, remaining handlers |
+| Phase 1 protocol port | Agent | ZB/CK + Ubjson, ZlibState, TCP client, KeepAlive, FD/JM handlers |
 | Optional fixture re-capture (`01`, `06`, `18`) | User | Low priority |
 
 ### Phase 0 GP-side smoke test (updated 2026-05-20)
@@ -213,7 +214,7 @@ extension enabled, script editor reopened after reload, and Product XML uses
 6. ~~**Agent**: copy fixtures.~~ **Done 2026-05-18**.
 7. ~~**Agent**: commit GP smoke-test fixes.~~ **Done 2026-05-20** (`84219c0`).
 8. ~~**Agent**: GP-bridge infrastructure.~~ **Mostly done 2026-05-20** — drain at GP entry points (no SDK timer); ScriptFunctions + ConfigStore landed.
-9. **Agent**: Phase 1 protocol port — **in progress** (MessageProtocol + PV parser + tests).
+9. **Agent**: Phase 1 protocol port — **in progress** (framing + PV/PC/PS/MS parsers + DataClient; ZB/UBJSON next).
 10. Continue Phases 2–5 per §5.
 
 ### How to reproduce the verified build from scratch

@@ -1,6 +1,7 @@
 #include "protocol/PvParser.h"
 
-#include <algorithm>
+#include "protocol/ParamKey.h"
+
 #include <cstring>
 
 namespace presonus::studiolive::gpext::protocol
@@ -24,18 +25,16 @@ std::optional<float> readFloatLe(std::span<const std::uint8_t> bytes)
 
 std::optional<PvMessage> parsePvPayload(std::span<const std::uint8_t> payload)
 {
-    const auto terminator = std::find(payload.begin(), payload.end(), std::uint8_t{0});
-    if (terminator == payload.end())
+    const auto keyEnd = findNullTerminatedKeyEnd(payload);
+    if (!keyEnd)
     {
         return std::nullopt;
     }
 
     PvMessage message;
-    message.key.assign(reinterpret_cast<const char *>(payload.data()),
-                     static_cast<std::size_t>(terminator - payload.begin()));
+    message.key.assign(reinterpret_cast<const char *>(payload.data()), *keyEnd);
 
-    const std::size_t tailOffset =
-        static_cast<std::size_t>(terminator - payload.begin()) + 1;
+    const std::size_t tailOffset = *keyEnd + 1;
     if (tailOffset + 2 > payload.size())
     {
         return std::nullopt;

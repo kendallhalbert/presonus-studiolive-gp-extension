@@ -12,7 +12,14 @@ add_library(psl_bridge STATIC
 
 add_library(psl_protocol STATIC
   src/protocol/MessageProtocol.cpp
-  src/protocol/PvParser.cpp)
+  src/protocol/ParamKey.cpp
+  src/protocol/HexUtil.cpp
+  src/protocol/PvParser.cpp
+  src/protocol/PcParser.cpp
+  src/protocol/PsParser.cpp
+  src/protocol/MsParser.cpp
+  src/protocol/DataClient.cpp
+  src/protocol/PacketParser.cpp)
 
 target_include_directories(psl_protocol
   PUBLIC

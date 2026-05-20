@@ -1,23 +1,11 @@
 #include <gtest/gtest.h>
 
-#include <filesystem>
-#include <fstream>
-#include <vector>
-
+#include "FixtureUtil.h"
 #include "protocol/MessageProtocol.h"
 #include "protocol/PvParser.h"
 
 namespace
 {
-
-std::vector<std::uint8_t> readFixtureBin(const char *relativePath)
-{
-    const std::filesystem::path path =
-        std::filesystem::path(PSL_FIXTURE_ROOT) / relativePath;
-    std::ifstream in(path, std::ios::binary);
-    EXPECT_TRUE(in.is_open()) << path.string();
-    return std::vector<std::uint8_t>(std::istreambuf_iterator<char>(in), {});
-}
 
 TEST(MessageProtocol, AnalysePvMuteFixture)
 {
