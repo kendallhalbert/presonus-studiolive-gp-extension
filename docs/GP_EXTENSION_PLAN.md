@@ -41,12 +41,13 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-21 | Phase 2 slice: generic `SetMute`/`SetLevelLinear`/`SetLevelDb` (LINE main mix), `GetCurrentProject`/`Scene`, dB curve. Phase 3 slice: widget bindings, song→scene bindings. |
 | 2026-05-21 | Phase 2: AUX/FX send routing via `ChannelKeys`; generic mute/level GPScript accepts `mixType`/`mixNumber`; **58 tests** green. |
 | 2026-05-21 | Phase 3 widget binding **hardware verified** on 32R — bidirectional fader + mute (Switch); IO→GP poll scheduling, `On TimerTick` drain pattern. |
+| 2026-05-21 | §8 AUX/FX send **hardware verified**; fix AUX level key `aux1` (lowercase); add `PollWidgetBindings()` GPScript. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-21 (§7 widget binding hardware verified on 32R)**
+**Last updated: 2026-05-21 (§8 AUX/FX send hardware verified on 32R)**
 
 ### TL;DR
 
@@ -56,8 +57,8 @@ Phase 0 **complete** on GP 5 Pro. Phase 1 wire + TCP session layer **done**.
 **Phase 3 slice:** LINE widget bindings — **hardware verified** (bidirectional fader + mute Switch),
 song→scene bindings (`BindSongToScene`, `OnSongChanged`).
 **58 tests** green (27 executables). **Hardware verified on 32R @ `10.0.0.14`:**
-connect, LINE controls, project/scene list, scene recall, **widget mirroring (§7)**.
-**Next:** AUX/FX send hardware test (§8) → song→scene optional → fade transitions → Phase 4 discovery.
+connect, LINE controls, project/scene list, scene recall, widget mirroring (§7), **AUX/FX sends (§8)**.
+**Next:** song→scene optional → fade transitions → Phase 4 discovery.
 
 ### What's done
 
@@ -78,7 +79,7 @@ connect, LINE controls, project/scene list, scene recall, **widget mirroring (§
 | **GP-bridge** | `extension/src/bridge/` — Logger, FileLogSink, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore, AppPaths |
 | **Phase 1** | `extension/src/protocol/` + `extension/src/transport/` — parsers, `MixerConnection`, `KeepAlive`, `FdAssembler`, `JmPacket`, `ConnectionHandshake` |
 | **Phase 2 (slice)** | `KvCache`, handshake, LINE mute/level/solo/pan/color GPScript, FD project/scene list + `RecallProjectScene`, connect/log APIs, **AUX/FX send keys** (`ChannelKeys`) |
-| **Hardware smoke test** | **LINE + §7 widgets verified 2026-05-21** — §8 AUX pending; see `docs/HARDWARE_SMOKE_TEST.md` |
+| **Hardware smoke test** | **LINE + §7 widgets + §8 AUX/FX verified 2026-05-21** — see `docs/HARDWARE_SMOKE_TEST.md` |
 | **Phase 3 (slice)** | Widget binding registry + **hardware-verified** bidirectional sync; song→scene bindings |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
@@ -137,7 +138,8 @@ Mixer: **StudioLive 32R**, fw **3.3.0.109659**. Runbook: `docs/HARDWARE_SMOKE_TE
 | `GetProjectCount` / `GetProjectName` | **Verified 2026-05-21** | FD list (~100 projects on test desk) |
 | `GetSceneCount` / `GetSceneName` | **Verified 2026-05-21** | Filters `.cnfg`; index 1 = first `.scn` |
 | `RecallProjectScene` | **Verified 2026-05-21** | JM `RestorePreset` (not FR Open) |
-| `BindLineLevelWidgetLinear` / `BindLineMuteWidget` | **Verified 2026-05-21** | Bidirectional; Switch for mute; `SetTimersRunning` + `On TimerTick` |
+| `BindLineLevelWidgetLinear` / `BindLineMuteWidget` | **Verified 2026-05-21** | Bidirectional; Switch for mute; `SetTimersRunning` + `On TimerTick` → `PollWidgetBindings()` |
+| `SetLevelLinear` / `SetMute` (AUX/FX send) | **Verified 2026-05-21** | Keys `line/ch1/aux1`, `line/ch1/FXA`; assign mute inverted |
 | `extension.log` | **Verified** | `%APPDATA%\PreSonusStudioLive\extension.log` |
 
 GPScript notes: functions with return values must be used in `Print(...)` or
@@ -214,7 +216,6 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 | ------- | ----- | ----- |
 | GPScript generic channel API | Agent | Main + AUX/FX **send** routing done; other channel types (RETURN, DCA, etc.) still TODO |
 | UDP discovery | Agent | Phase 4 — fixture `01-discovery-broadcast` still skipped |
-| AUX/FX send hardware test | User | §8 — route ch1→AUX1 in UC Surface first |
 | Song→scene hardware test | User | Optional — `BindSongToScene` + GP setlist change |
 | Fade transitions (`fadeMs`) | Agent | Phase 2 remainder |
 
@@ -265,7 +266,7 @@ extension enabled, script editor reopened after reload, and Product XML uses
 12. ~~**Agent**: Phase 2 LINE slice + hardware validation~~ **Done 2026-05-21**.
 13. ~~**Agent**: Phase 3 widget binding slice~~ **Done 2026-05-21** (LINE widgets + song bindings).
 14. ~~**User**: widget binding hardware test in GP panel (§7)~~ **Done 2026-05-21** — bidirectional fader + mute Switch.
-15. **User**: AUX/FX send hardware test (§8).
+15. ~~**User**: AUX/FX send hardware test (§8)~~ **Done 2026-05-21** — AUX key fix `aux1` lowercase; FX `FXA`.
 16. **User** (optional): song→scene binding hardware test.
 17. Continue Phase 2 remainder (fades, other channel types) + Phase 4–5 per §5.
 
@@ -390,8 +391,13 @@ existing TypeScript library is retired after fixture capture is complete.
 - All `GP_*` calls happen on the GP thread.
 - All socket I/O happens on the IO thread.
 - The KV state cache is read by both; protected by one `std::mutex`.
-- Mixer→widget updates: IO thread pushes a task onto the dispatcher; GP-thread
-  drain calls `GpHost::setWidgetValue`.
+- Mixer→widget updates: IO thread posts a poll task on the dispatcher when PV/MS
+  packets arrive; GP-thread drain (via `PollWidgetBindings()` or any extension
+  entry point) calls `GpHost::setWidgetValue`.
+- **Rackspace timer:** GP SDK v62 has no periodic extension callback. For
+  `direction` 0 or 2, authors call `PollWidgetBindings()` from GPScript
+  `On TimerTick` (`SetTimersRunning(true)`). Removing this requirement needs
+  a future GP SDK idle/timer hook or direction 1-only bindings.
 - Widget→mixer updates: GP-thread `OnWidgetValueChanged` enqueues a packet
   send via the IO thread's command queue.
 - **Feedback-loop suppression**: when we push a value to a widget because of
@@ -488,7 +494,13 @@ psl_BindMuteWidget       (widget : String, type, channel, mixType, mixNumber, di
 psl_BindSoloWidget       (widget : String, type, channel, direction : Integer)                      Returns Boolean
 psl_UnbindWidget         (widget : String)                                                          Returns Boolean
 psl_UnbindAll()
+psl_PollWidgetBindings()                                                                             Returns Boolean
 ```
+
+Call `PollWidgetBindings()` from `On TimerTick` when bindings include
+mixer→widget (`direction` 0 or 2). GP SDK v62 has no extension idle callback;
+the rackspace timer requirement goes away only if GP adds one or bindings are
+widget→mixer only (`direction` 1).
 
 ### 4.8 Song ↔ scene auto-recall (Phase 3)
 
@@ -671,7 +683,7 @@ committed to the new GP-extension repo under `tests/fixtures/`.
 | `03-handshake-zb-chunked.bin`       | When the ZB arrives split across `CK` frames                        |
 | `04-pv-float-volume.bin`            | `line/ch1/volume = 0.72`                                            |
 | `05-pv-bool-mute.bin`               | `line/ch1/mute = true`                                              |
-| `06-pv-aux-send-level.bin`          | `line/ch1/AUX1 = 0.5`                                               |
+| `06-pv-aux-send-level.bin`          | `line/ch1/aux1 = 0.5` (lowercase key)                               |
 | `07-pv-fx-send-level.bin`           | `line/ch1/FXA = 0.5`                                                |
 | `08-pv-assign-aux.bin`              | `line/ch1/assign_aux1` mute-on-send                                 |
 | `09-pv-link-stereo.bin`             | `line/ch1/link = true`                                              |

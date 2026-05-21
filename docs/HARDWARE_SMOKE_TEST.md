@@ -317,11 +317,11 @@ Initialization
 End
 
 On TimerTick(milliseconds : Double)
-    Print(PreSonusStudioLive_IsConnected())
+    Print(PreSonusStudioLive_PollWidgetBindings())
 End
 ```
 
-`SetTimersRunning(true)` enables the periodic **`On TimerTick`** callback (GP has no `On Timer(ms)` syntax). The timer drains mixer→widget updates (desk fader moves). Any extension call works; `IsConnected()` is a lightweight choice.
+**Mixer→widget polling:** Incoming desk changes are queued on the IO thread and applied when the GP thread drains. GP has no extension idle/timer callback in SDK v62, so rackspaces with `direction` **0** or **2** must call `PollWidgetBindings()` periodically — typically from **`On TimerTick`** after `SetTimersRunning(true)`. Widget→desk (`direction` **1** or **2**) does not need the timer; it uses `OnWidgetValueChanged`. A future version could hide the timer if Gig Performer adds a periodic extension callback.
 
 `direction`: **0** = mixer→widget only, **1** = widget→mixer only, **2** = both (recommended).
 
@@ -373,6 +373,6 @@ Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "", 0, 50.0))
 
 | Step | Pass? | Desk moved? | Notes |
 | ---- | ----- | ----------- | ----- |
-| AUX 1 send fader → 75% | | | Key `line/ch1/AUX1` |
+| AUX 1 send fader → 75% | | | Key `line/ch1/aux1` (lowercase; session capture) |
 | AUX 1 send un-muted (`SetMute(..., 0)`) | | | Uses `assign_aux1` (inverted) |
 | FX 1 send fader → 50% | | | Key `line/ch1/FXA` |

@@ -585,6 +585,13 @@ extern "C" void psl_UnbindAll(GPRuntimeEngine *vm)
     }
 }
 
+extern "C" void psl_PollWidgetBindings(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    (void)vm;
+    GP_VM_PushBoolean(vm, ExtensionContext::instance() != nullptr);
+}
+
 extern "C" void psl_BindSongToScene(GPRuntimeEngine *vm)
 {
     drainIfOnGpThread();
@@ -860,6 +867,13 @@ ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
         "",
         "Remove all widget bindings.",
         &psl_UnbindAll,
+    },
+    {
+        "PollWidgetBindings",
+        "",
+        "Returns Boolean",
+        "Drain queued mixer-to-widget updates on the GP thread. Call from On TimerTick when direction includes mixer-to-widget.",
+        &psl_PollWidgetBindings,
     },
     {
         "BindSongToScene",

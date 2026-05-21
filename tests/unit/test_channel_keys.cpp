@@ -20,7 +20,7 @@ TEST(ChannelKeys, LineAuxSendKeysMatchFixtures)
     const auto target = presonus::studiolive::gpext::protocol::parseChannelTarget(
         "LINE", 1, "AUX", 1);
     ASSERT_TRUE(target.has_value());
-    EXPECT_EQ(presonus::studiolive::gpext::protocol::levelPvKey(*target), "line/ch1/AUX1");
+    EXPECT_EQ(presonus::studiolive::gpext::protocol::levelPvKey(*target), "line/ch1/aux1");
     EXPECT_EQ(presonus::studiolive::gpext::protocol::mutePvKey(*target),
               "line/ch1/assign_aux1");
     EXPECT_TRUE(presonus::studiolive::gpext::protocol::sendMuteUsesInvertedAssign(*target));

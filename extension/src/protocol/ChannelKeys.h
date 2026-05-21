@@ -27,7 +27,7 @@ struct ChannelTarget
 std::optional<ChannelTarget> parseChannelTarget(std::string_view type, int channel,
                                                 std::string_view mixType, int mixNumber);
 
-/// PV key for fader level (main `volume` or send `AUXn` / `FXA`…).
+/// PV key for fader level (main `volume`, send `auxn`, or `FXA`…).
 std::string levelPvKey(const ChannelTarget &target);
 
 /// PV key for mute (`mute` or inverted `assign_auxn` / `assign_fxn`).

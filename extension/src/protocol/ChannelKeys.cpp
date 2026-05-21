@@ -135,7 +135,7 @@ std::string levelPvKey(const ChannelTarget &target)
     case MixKind::Main:
         return key + "/volume";
     case MixKind::Aux:
-        return key + "/AUX" + std::to_string(target.mixNumber);
+        return key + "/aux" + std::to_string(target.mixNumber);
     case MixKind::Fx:
         return key + "/FX" + static_cast<char>(0x40 + target.mixNumber);
     }
