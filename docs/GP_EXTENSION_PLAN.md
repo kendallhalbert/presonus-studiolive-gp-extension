@@ -42,23 +42,24 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-21 | Phase 2: AUX/FX send routing via `ChannelKeys`; generic mute/level GPScript accepts `mixType`/`mixNumber`; **58 tests** green. |
 | 2026-05-21 | Phase 3 widget binding **hardware verified** on 32R — bidirectional fader + mute (Switch); IO→GP poll scheduling, `On TimerTick` drain pattern. |
 | 2026-05-21 | §8 AUX/FX send **hardware verified**; fix AUX level key `aux1` (lowercase); add `PollWidgetBindings()` GPScript. |
+| 2026-05-21 | **Fade transitions** — `ValueUtil::transitionValue`, `fadeMs` on `SetLevelLinear`/`SetLevelDb`; §9–§10 smoke test; **60 tests** green. **Not yet hardware-verified.** |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-21 (§8 AUX/FX send hardware verified on 32R)**
+**Last updated: 2026-05-21 (fade transitions committed; §10 hardware test pending)**
 
 ### TL;DR
 
 Phase 0 **complete** on GP 5 Pro. Phase 1 wire + TCP session layer **done**.
 **Phase 2 mostly done:** LINE shortcuts + generic mute/level (linear + dB) for **main, AUX, and FX sends**,
-`GetCurrentProject`/`Scene`, project/scene list, **JM RestorePreset** scene recall.
+`GetCurrentProject`/`Scene`, project/scene list, **JM RestorePreset** scene recall, **fade transitions** (`fadeMs` on `SetLevelLinear` / `SetLevelDb` — coded, **§10 hardware test pending**).
 **Phase 3 slice:** LINE widget bindings — **hardware verified** (bidirectional fader + mute Switch),
-song→scene bindings (`BindSongToScene`, `OnSongChanged`).
-**58 tests** green (27 executables). **Hardware verified on 32R @ `10.0.0.14`:**
+song→scene bindings (`BindSongToScene`, `OnSongChanged`) — **§9 hardware test optional**.
+**60 tests** green (27 executables). **Hardware verified on 32R @ `10.0.0.14`:**
 connect, LINE controls, project/scene list, scene recall, widget mirroring (§7), **AUX/FX sends (§8)**.
-**Next:** song→scene optional → fade transitions → Phase 4 discovery.
+**Next:** user §9 song→scene + §10 fade on desk → Phase 4 UDP discovery.
 
 ### What's done
 
@@ -140,6 +141,8 @@ Mixer: **StudioLive 32R**, fw **3.3.0.109659**. Runbook: `docs/HARDWARE_SMOKE_TE
 | `RecallProjectScene` | **Verified 2026-05-21** | JM `RestorePreset` (not FR Open) |
 | `BindLineLevelWidgetLinear` / `BindLineMuteWidget` | **Verified 2026-05-21** | Bidirectional; Switch for mute; `SetTimersRunning` + `On TimerTick` → `PollWidgetBindings()` |
 | `SetLevelLinear` / `SetMute` (AUX/FX send) | **Verified 2026-05-21** | Keys `line/ch1/aux1`, `line/ch1/FXA`; assign mute inverted |
+| `SetLevelLinear` / `SetLevelDb` (`fadeMs` > 0) | **Not verified** | §10 — ease-in-out sine on IO thread; pass `fadeMs` 0 for instant |
+| `BindSongToScene` | **Not verified** | §9 optional — GP setlist song change → JM scene recall |
 | `extension.log` | **Verified** | `%APPDATA%\PreSonusStudioLive\extension.log` |
 
 GPScript notes: functions with return values must be used in `Print(...)` or
@@ -170,13 +173,13 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 
 ### Repo state at bookmark
 
-**C++ repo** (`presonus-studiolive-gp-extension`) — **in sync with origin**:
+**C++ repo** (`presonus-studiolive-gp-extension`):
 
 ```
-Branch:  main (tracks origin/main)
+Branch:  main (ahead of origin/main by 1)
 Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
-HEAD:    03fe9be (LINE controls + scene list; 48 tests; CI expected green)
-Recent:  50973d6 KvCache + GetLineMute
+HEAD:    ece8923 — fade transitions + fadeMs API + docs
+Tests:   60/60 green (Release build-rel)
 ```
 
 **GP install DLL** (local Release, SDK v62):
@@ -185,11 +188,7 @@ Recent:  50973d6 KvCache + GetLineMute
 C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension\build-rel\bin\Release\PreSonusStudioLive.dll
 ```
 
-Legacy Debug DLL (do **not** install in GP — missing `MSVCP140D.dll` on non-dev PCs):
-
-```
-...\build\bin\Debug\PreSonusStudioLive.dll
-```
+Rebuild + `.\tools\install-gp-release.ps1` after pulling fade commit.
 
 **GP SDK clone** (sibling, not a submodule):
 
@@ -216,8 +215,8 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 | ------- | ----- | ----- |
 | GPScript generic channel API | Agent | Main + AUX/FX **send** routing done; other channel types (RETURN, DCA, etc.) still TODO |
 | UDP discovery | Agent | Phase 4 — fixture `01-discovery-broadcast` still skipped |
-| Song→scene hardware test | User | Optional — `BindSongToScene` + GP setlist change |
-| Fade transitions (`fadeMs`) | Agent | Phase 2 remainder |
+| Song→scene hardware test | User | Optional — §9 `BindSongToScene` + GP setlist change |
+| Fade transitions hardware test | User | §10 — 500 ms main fader fade on 32R |
 
 ### Phase 0 GP-side smoke test (updated 2026-05-20)
 
@@ -267,8 +266,9 @@ extension enabled, script editor reopened after reload, and Product XML uses
 13. ~~**Agent**: Phase 3 widget binding slice~~ **Done 2026-05-21** (LINE widgets + song bindings).
 14. ~~**User**: widget binding hardware test in GP panel (§7)~~ **Done 2026-05-21** — bidirectional fader + mute Switch.
 15. ~~**User**: AUX/FX send hardware test (§8)~~ **Done 2026-05-21** — AUX key fix `aux1` lowercase; FX `FXA`.
-16. **User** (optional): song→scene binding hardware test.
-17. Continue Phase 2 remainder (fades, other channel types) + Phase 4–5 per §5.
+16. **User** (optional): song→scene binding hardware test (§9).
+17. **User** (optional): fade transition hardware test (§10).
+18. **Agent**: Phase 4 UDP discovery + Phase 2 remainder (other channel types) per §5.
 
 ### How to reproduce the verified build from scratch
 
@@ -462,6 +462,12 @@ psl_GetLevelLinear(type, channel, mixType, mixNumber)  Returns Double
 psl_GetLevelDb    (type, channel, mixType, mixNumber)  Returns Double
 ```
 
+`fadeMs` **0** = single instant PV send (default behaviour). **`fadeMs` > 0** runs an
+ease-in-out sine transition on the mixer IO thread (~10 ms steps, matching the JS API).
+Transitions interpolate in **linear percent space** (0..100), then each step is converted
+to a PV volume scalar. **Breaking change (2026-05-21):** `fadeMs` is a required last
+argument on `SetLevelLinear` and `SetLevelDb` — pass **0** for instant moves.
+
 ### 4.5 Pan / Color
 
 ```
@@ -561,7 +567,7 @@ from GPScript end-to-end against a real mixer.
 - Stack-based ABI helpers (`PopChannelSelector`, etc.) wrapping `GP_VM_*`.
 - Input validation library (rejects bad type strings, out-of-range channels;
   every `psl_*` returns a sentinel rather than crashing on bad input).
-- Fade transitions (`transitionValue` on the IO thread).
+- Fade transitions (`transitionValue` on the IO thread). **Done** — `ValueUtil::transitionValue`, `SetLevelLinear`/`SetLevelDb` + `fadeMs`.
 - Per-function tests via `MockGpHost` + `FakeMixerTransport`.
 
 ### Phase 3 — Events, widgets, song bindings (~3–5 days)

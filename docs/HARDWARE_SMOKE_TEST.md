@@ -342,14 +342,6 @@ End
 
 **If widget→desk does not work:** confirm `direction` is **1** or **2** and the extension registered `OnWidgetValueChanged` (reload libraries after DLL update).
 
-Song→scene (optional):
-
-```gigperformer
-Print(PreSonusStudioLive_BindSongToScene(0, "01.West End Girls.proj", "01.Live Performance.scn"))
-```
-
-Change GP setlist song index **0** — desk should recall **Live Performance**.
-
 ## 8. AUX / FX send levels (Phase 2)
 
 Route **input 1** to **AUX 1** in UC Surface first (fixture `06-pv-aux-send-level` was skipped when ch1 was not routed).
@@ -357,18 +349,18 @@ Route **input 1** to **AUX 1** in UC Surface first (fixture `06-pv-aux-send-leve
 ```gigperformer
 Initialization
     Print(PreSonusStudioLive_Connect("10.0.0.14"))
-    Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "AUX", 1, 75.0))
+    Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "AUX", 1, 75.0, 0))
     Print(PreSonusStudioLive_GetLevelLinear("LINE", 1, "AUX", 1))
     Print(PreSonusStudioLive_SetMute("LINE", 1, "AUX", 1, 0))
     Print(PreSonusStudioLive_GetMute("LINE", 1, "AUX", 1))
-    Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "FX", 1, 50.0))
+    Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "FX", 1, 50.0, 0))
 End
 ```
 
-For **main mix**, pass empty mix type and mix number **0**:
+For **main mix**, pass empty mix type and mix number **0** (`fadeMs` **0** = instant):
 
 ```gigperformer
-Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "", 0, 50.0))
+Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "", 0, 50.0, 0))
 ```
 
 | Step | Pass? | Desk moved? | Notes |
@@ -376,3 +368,40 @@ Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "", 0, 50.0))
 | AUX 1 send fader → 75% | | | Key `line/ch1/aux1` (lowercase; session capture) |
 | AUX 1 send un-muted (`SetMute(..., 0)`) | | | Uses `assign_aux1` (inverted) |
 | FX 1 send fader → 50% | | | Key `line/ch1/FXA` |
+
+## 9. Song → scene binding (Phase 3, optional)
+
+List projects/scenes first (§6), then bind GP setlist song index **0** to a known scene:
+
+```gigperformer
+Initialization
+    Print(PreSonusStudioLive_Connect("10.0.0.14"))
+    Print(PreSonusStudioLive_BindSongToScene(0, "01.West End Girls.proj", "01.Live Performance.scn"))
+End
+```
+
+| Step | Pass? | Notes |
+| ---- | ----- | ----- |
+| `BindSongToScene` returns **True** | | Project/scene filenames must match FD list exactly |
+| Change GP setlist to song **0** | | Desk recalls **Live Performance** scene |
+| Change to another song (unbound) | | Desk unchanged |
+
+## 10. Fade transitions (Phase 2)
+
+**Status:** coded, **not yet hardware-verified** on 32R.
+
+Fades run on the mixer IO thread (ease-in-out sine, ~10 ms steps). Pass **`fadeMs`** as the last argument; **0** = instant (same as before).
+
+```gigperformer
+Initialization
+    Print(PreSonusStudioLive_Connect("10.0.0.14"))
+    Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "", 0, 0.0, 0))
+    Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "", 0, 75.0, 500))
+End
+```
+
+| Step | Pass? | Desk moved? | Notes |
+| ---- | ----- | ----------- | ----- |
+| Instant set to 0% (`fadeMs` 0) | | | |
+| 500 ms fade 0% → 75% | | | Smooth fader motion; multiple PV packets in log |
+| dB fade works | | | `SetLevelDb("LINE", 1, "", 0, 0.0, 500)` from current level |

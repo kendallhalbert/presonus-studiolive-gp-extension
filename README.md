@@ -14,11 +14,12 @@ This repo is the C++ implementation that supersedes the Node.js
 library. Wire-format behavior is validated against captured fixtures from a
 **StudioLive 32R** (firmware 3.3.0.109659).
 
-> **Status (2026-05-20):** Phase 0 and Phase 1 are **complete**. **Phase 2** is in
-> progress: UCNet handshake, parameter cache, LINE GPScript APIs, and FD project/scene
-> listing. **48 unit tests** across 24 executables. **Hardware verified** on a 32R:
-> TCP connect and LINE mute set/get. Other LINE APIs and scene recall are implemented
-> but not yet re-checked on hardware.
+> **Status (2026-05-21):** Phases 0–1 **complete**. **Phase 2** mostly done: UCNet handshake,
+> LINE shortcuts, generic mute/level (main + AUX/FX sends, linear + dB), **fade transitions**
+> (`fadeMs`), project/scene list/recall. **Phase 3** slice: LINE widget bindings (hardware
+> verified), song→scene bindings (optional §9 test). **60 unit tests** across 27 executables.
+> **Hardware verified** on a 32R @ `10.0.0.14`: connect, LINE controls, scene recall, widget
+> mirroring (§7), AUX/FX sends (§8). Fades (§10) and song→scene (§9) not yet re-checked on desk.
 >
 > Design, roadmap, and phase detail:
 > [`docs/GP_EXTENSION_PLAN.md`](docs/GP_EXTENSION_PLAN.md).
@@ -33,12 +34,14 @@ library. Wire-format behavior is validated against captured fixtures from a
 | ---- | ---------------- | ----- |
 | Session | `Connect`, `Disconnect`, `IsConnected` | TCP to mixer IP/hostname, port 53000 |
 | Logging | `SetLogLevel`, `LogFilePath` | File log under `%APPDATA%\PreSonusStudioLive\extension.log` |
-| LINE inputs | Mute, level (0–100%), solo, pan, color | 1-based channel index; getters read optimistic cache |
-| Projects / scenes | `GetProjectCount`, `GetProjectName`, `GetSceneCount`, `GetSceneName`, `RecallProjectScene` | First list call can block ~5s while FD payloads arrive |
+| LINE inputs | Mute, level (0–100%), solo, pan, color | 1-based channel; LINE shortcuts have no `fadeMs` (instant only) |
+| Generic channels | `SetMute`, `GetMute`, `SetLevelLinear`, `GetLevelLinear`, `SetLevelDb`, `GetLevelDb` | `type` + `mixType`/`mixNumber` for main, AUX, FX sends; **`fadeMs` required** on set-level (0 = instant) |
+| Projects / scenes | `GetProjectCount`, `GetProjectName`, `GetSceneCount`, `GetSceneName`, `RecallProjectScene`, `GetCurrentProject`, `GetCurrentScene` | First list call can block ~5s while FD payloads arrive |
+| Widget bindings | `BindLineLevelWidgetLinear`, `BindLineLevelWidgetDb`, `BindLineMuteWidget`, `BindLineSoloWidget`, `UnbindWidget`, `UnbindAll`, `PollWidgetBindings` | Mute bind needs a **Switch** widget; call `PollWidgetBindings` from `On TimerTick` for desk→widget |
+| Song → scene | `BindSongToScene`, `BindSongPartToScene`, `UnbindSong` | Recalls scene on GP setlist change (`OnSongChanged`) |
 | Meta | `Version` | Currently reports `1.0.0-phase0` |
 
-**Planned (not in this build):** AUX / FX / MAIN / DCA / SUB paths, dB faders, fades,
-GP rackspace widgets, and broader mix-type coverage — see the plan doc §4.
+**Planned (not in this build):** UDP discovery, RETURN/DCA/SUB paths, meters, broader mix-type coverage — see the plan doc §4.
 
 **Tested host:** Gig Performer **5 Pro** with GP SDK **`beta-sdk-v62`** (SDK version 62).
 GP 5 rejects extensions built against older SDK branches.
@@ -77,9 +80,35 @@ visible to script authors.
 | `PreSonusStudioLive_GetSceneCount` | `projectFile : String` | Integer |
 | `PreSonusStudioLive_GetSceneName` | `projectFile : String`, `index : Integer` | String |
 | `PreSonusStudioLive_RecallProjectScene` | `projectFile : String`, `sceneFile : String` | Boolean |
+| `PreSonusStudioLive_GetCurrentProject` | — | String |
+| `PreSonusStudioLive_GetCurrentScene` | — | String |
+| `PreSonusStudioLive_SetMute` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer`, `muted : Integer` | Boolean |
+| `PreSonusStudioLive_GetMute` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer` | Boolean |
+| `PreSonusStudioLive_SetLevelLinear` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer`, `level : Double`, `fadeMs : Integer` | Boolean |
+| `PreSonusStudioLive_GetLevelLinear` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer` | Double |
+| `PreSonusStudioLive_SetLevelDb` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer`, `db : Double`, `fadeMs : Integer` | Boolean |
+| `PreSonusStudioLive_GetLevelDb` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer` | Double |
+| `PreSonusStudioLive_BindLineLevelWidgetLinear` | `widgetName : String`, `channel : Integer`, `direction : Integer` | Boolean |
+| `PreSonusStudioLive_BindLineLevelWidgetDb` | `widgetName : String`, `channel : Integer`, `direction : Integer` | Boolean |
+| `PreSonusStudioLive_BindLineMuteWidget` | `widgetName : String`, `channel : Integer`, `direction : Integer` | Boolean |
+| `PreSonusStudioLive_BindLineSoloWidget` | `widgetName : String`, `channel : Integer`, `direction : Integer` | Boolean |
+| `PreSonusStudioLive_UnbindWidget` | `widgetName : String` | Boolean |
+| `PreSonusStudioLive_UnbindAll` | — | — |
+| `PreSonusStudioLive_PollWidgetBindings` | — | Boolean |
+| `PreSonusStudioLive_BindSongToScene` | `songIndex : Integer`, `projectFile : String`, `sceneFile : String` | Boolean |
+| `PreSonusStudioLive_BindSongPartToScene` | `songIndex : Integer`, `partIndex : Integer`, `projectFile : String`, `sceneFile : String` | Boolean |
+| `PreSonusStudioLive_UnbindSong` | `songIndex : Integer` | Boolean |
+
+**Generic channel args:** `type` is `"LINE"` (etc.). For **main mix** level/mute, pass
+`mixType=""` and `mixNumber=0`. For **AUX 1** send: `mixType="AUX"`, `mixNumber=1`.
+For **FX A** send: `mixType="FX"`, `mixNumber=1`. **`fadeMs` 0** = instant; **> 0** =
+ease-in-out fade on the IO thread (~10 ms PV steps).
+
+**Widget `direction`:** `0` = desk→widget, `1` = widget→desk, `2` = both. For `0` or `2`,
+call `PollWidgetBindings()` from `On TimerTick` (with `SetTimersRunning(true)`).
 
 GPScript requires functions that return a value to appear inside `Print(...)` or an
-assignment. `Disconnect()` may be called as a standalone statement.
+assignment. `Disconnect()` and `UnbindAll()` may be called as standalone statements.
 
 Minimal rackspace check:
 

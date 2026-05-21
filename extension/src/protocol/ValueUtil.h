@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 namespace presonus::studiolive::gpext::protocol
 {
 
@@ -20,5 +22,13 @@ double dbToLinearPercent(double db);
 
 /// Linear percent (0..100) to GPScript dB (-84..+10), inverse of dbToLinearPercent.
 double linearPercentToDb(double linearPercent);
+
+/// Ease-in-out sine transition from `from` to `to` over `durationMs`, calling `onStep` each tick.
+/// Runs synchronously (intended for the mixer IO thread). `durationMs` <= 0 sends `to` once.
+void transitionValue(double from,
+                     double to,
+                     int durationMs,
+                     const std::function<void(double)> &onStep,
+                     const std::function<void()> &onDone = {});
 
 } // namespace presonus::studiolive::gpext::protocol

@@ -380,6 +380,7 @@ extern "C" void psl_SetLevelLinear(GPRuntimeEngine *vm)
 {
     drainIfOnGpThread();
 
+    const int fadeMs = GP_VM_PopInteger(vm);
     const double level = GP_VM_PopDouble(vm);
     const int mixNumber = GP_VM_PopInteger(vm);
     char mixTypeBuffer[32] = {};
@@ -392,7 +393,7 @@ extern "C" void psl_SetLevelLinear(GPRuntimeEngine *vm)
     const auto target =
         protocol::parseChannelTarget(typeBuffer, channel, mixTypeBuffer, mixNumber);
     const bool ok = svc != nullptr && target.has_value() &&
-                    svc->setChannelLevelLinear(*target, level);
+                    svc->setChannelLevelLinear(*target, level, fadeMs);
     GP_VM_PushBoolean(vm, ok);
 }
 
@@ -424,6 +425,7 @@ extern "C" void psl_SetLevelDb(GPRuntimeEngine *vm)
 {
     drainIfOnGpThread();
 
+    const int fadeMs = GP_VM_PopInteger(vm);
     const double db = GP_VM_PopDouble(vm);
     const int mixNumber = GP_VM_PopInteger(vm);
     char mixTypeBuffer[32] = {};
@@ -435,8 +437,8 @@ extern "C" void psl_SetLevelDb(GPRuntimeEngine *vm)
     mixer::MixerService *const svc = mixer();
     const auto target =
         protocol::parseChannelTarget(typeBuffer, channel, mixTypeBuffer, mixNumber);
-    const bool ok =
-        svc != nullptr && target.has_value() && svc->setChannelLevelDb(*target, db);
+    const bool ok = svc != nullptr && target.has_value() &&
+                    svc->setChannelLevelDb(*target, db, fadeMs);
     GP_VM_PushBoolean(vm, ok);
 }
 
@@ -800,9 +802,9 @@ ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
     },
     {
         "SetLevelLinear",
-        "type : String, channel : Integer, mixType : String, mixNumber : Integer, level : Double",
+        "type : String, channel : Integer, mixType : String, mixNumber : Integer, level : Double, fadeMs : Integer",
         "Returns Boolean",
-        "Set fader level 0..100 (main volume or AUX/FX send level).",
+        "Set fader level 0..100 (main volume or AUX/FX send level). fadeMs 0 = instant.",
         &psl_SetLevelLinear,
     },
     {
@@ -814,9 +816,9 @@ ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
     },
     {
         "SetLevelDb",
-        "type : String, channel : Integer, mixType : String, mixNumber : Integer, db : Double",
+        "type : String, channel : Integer, mixType : String, mixNumber : Integer, db : Double, fadeMs : Integer",
         "Returns Boolean",
-        "Set fader level in dB -84..+10.",
+        "Set fader level in dB -84..+10. fadeMs 0 = instant.",
         &psl_SetLevelDb,
     },
     {

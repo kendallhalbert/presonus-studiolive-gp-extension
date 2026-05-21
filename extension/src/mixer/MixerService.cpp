@@ -309,6 +309,14 @@ void MixerService::sendPvFloat(const std::string &key, float value)
     });
 }
 
+void MixerService::sendPvFloatImmediate(const std::string &key, float value)
+{
+    if (connection_)
+    {
+        connection_->sendRaw(protocol::createPvPacket(key, value));
+    }
+}
+
 void MixerService::sendPvBool(const std::string &key, bool value)
 {
     stateCache_.setBool(key, value);
@@ -517,17 +525,40 @@ std::optional<bool> MixerService::getChannelMute(const protocol::ChannelTarget &
 }
 
 bool MixerService::setChannelLevelLinear(const protocol::ChannelTarget &target,
-                                         double levelPercent)
+                                         double levelPercent,
+                                         int fadeMs)
 {
     if (!isConnected())
     {
         return false;
     }
 
-    const float scalar = protocol::linearPercentToVolumeScalar(levelPercent);
     const auto key = protocol::levelPvKey(target);
-    stateCache_.setFloat(key, levelPercent);
-    sendPvFloat(key, scalar);
+
+    if (fadeMs <= 0)
+    {
+        stateCache_.setFloat(key, levelPercent);
+        sendPvFloat(key, protocol::linearPercentToVolumeScalar(levelPercent));
+        return true;
+    }
+
+    const double from = getChannelLevelLinear(target).value_or(levelPercent);
+    if (from == levelPercent)
+    {
+        return true;
+    }
+
+    enqueue([this, key, from, levelPercent, fadeMs]() {
+        protocol::transitionValue(
+            from,
+            levelPercent,
+            fadeMs,
+            [this, key](const double linearPercent) {
+                stateCache_.setFloat(key, linearPercent);
+                sendPvFloatImmediate(key,
+                                     protocol::linearPercentToVolumeScalar(linearPercent));
+            });
+    });
     return true;
 }
 
@@ -546,9 +577,11 @@ std::optional<double> MixerService::getChannelLevelLinear(
     return std::nullopt;
 }
 
-bool MixerService::setChannelLevelDb(const protocol::ChannelTarget &target, double db)
+bool MixerService::setChannelLevelDb(const protocol::ChannelTarget &target,
+                                       double db,
+                                       int fadeMs)
 {
-    return setChannelLevelLinear(target, protocol::dbToLinearPercent(db));
+    return setChannelLevelLinear(target, protocol::dbToLinearPercent(db), fadeMs);
 }
 
 std::optional<double> MixerService::getChannelLevelDb(

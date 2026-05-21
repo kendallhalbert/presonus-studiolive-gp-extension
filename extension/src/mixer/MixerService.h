@@ -59,10 +59,12 @@ class MixerService
     bool setChannelMute(const protocol::ChannelTarget &target, bool muted);
     std::optional<bool> getChannelMute(const protocol::ChannelTarget &target) const;
 
-    bool setChannelLevelLinear(const protocol::ChannelTarget &target, double levelPercent);
+    bool setChannelLevelLinear(const protocol::ChannelTarget &target,
+                               double levelPercent,
+                               int fadeMs = 0);
     std::optional<double> getChannelLevelLinear(const protocol::ChannelTarget &target) const;
 
-    bool setChannelLevelDb(const protocol::ChannelTarget &target, double db);
+    bool setChannelLevelDb(const protocol::ChannelTarget &target, double db, int fadeMs = 0);
     std::optional<double> getChannelLevelDb(const protocol::ChannelTarget &target) const;
 
     bool requestFileList(const std::string &path);
@@ -96,6 +98,7 @@ class MixerService
     void ioLoop();
     void enqueue(IoTask task);
     void sendPvFloat(const std::string &key, float value);
+    void sendPvFloatImmediate(const std::string &key, float value);
     void sendPvBool(const std::string &key, bool value);
     bool fetchFileListBlocking(const std::string &path,
                                std::vector<protocol::FdFileEntry> &out);

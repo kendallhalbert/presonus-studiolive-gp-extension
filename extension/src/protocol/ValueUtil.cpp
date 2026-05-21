@@ -1,7 +1,9 @@
 #include "protocol/ValueUtil.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <thread>
 
 namespace presonus::studiolive::gpext::protocol
 {
@@ -92,6 +94,49 @@ double linearPercentToDb(double linearPercent)
         }
     }
     return (lo + hi) * 0.5;
+}
+
+void transitionValue(const double from,
+                     const double to,
+                     const int durationMs,
+                     const std::function<void(double)> &onStep,
+                     const std::function<void()> &onDone)
+{
+    if (durationMs <= 0 || from == to)
+    {
+        onStep(to);
+        if (onDone)
+        {
+            onDone();
+        }
+        return;
+    }
+
+    constexpr int kMinIntervalMs = 10;
+    const int intervalMs = std::max(durationMs / 100, kMinIntervalMs);
+    const double step = clamp(static_cast<double>(intervalMs) / durationMs, 0.0, 1.0);
+
+    constexpr double kPi = 3.14159265358979323846;
+    const auto curve = [kPi](const double position) {
+        return -(std::cos(kPi * position) - 1.0) / 2.0;
+    };
+
+    double progress = 0.0;
+    for (;;)
+    {
+        onStep(from + (to - from) * curve(progress));
+        if (progress >= 1.0)
+        {
+            break;
+        }
+        progress = std::min(progress + step, 1.0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
+    }
+
+    if (onDone)
+    {
+        onDone();
+    }
 }
 
 } // namespace presonus::studiolive::gpext::protocol
