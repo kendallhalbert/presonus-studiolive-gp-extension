@@ -5,6 +5,8 @@
 #include "bridge/SongBindingTable.h"
 #include "bridge/WidgetBindingRegistry.h"
 
+#include <atomic>
+
 namespace presonus::studiolive::gpext::mixer
 {
 class MixerService;
@@ -35,6 +37,9 @@ class ExtensionContext
     /// Run queued IO→GP tasks on the current (GP) thread.
     void drainGpTasks();
 
+    /// Queue a mixer→widget poll on the GP thread (coalesced; safe from IO thread).
+    void scheduleWidgetPoll();
+
     void setMixerService(mixer::MixerService *service) { mixer_ = service; }
     mixer::MixerService *mixerService() const { return mixer_; }
 
@@ -49,6 +54,7 @@ class ExtensionContext
     SongBindingTable songBindings_;
     mixer::MixerService *mixer_{nullptr};
     ConfigStore *config_{nullptr};
+    std::atomic<bool> widgetPollScheduled_{false};
 };
 
 } // namespace presonus::studiolive::gpext::bridge

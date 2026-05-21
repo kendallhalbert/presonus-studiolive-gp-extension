@@ -109,7 +109,18 @@ void LibMain::Initialization()
 
     mixer_ = std::make_unique<mixer::MixerService>(logger_);
     context_->setMixerService(mixer_.get());
+    mixer_->setStateChangeCallback([this]() {
+        if (context_ != nullptr)
+        {
+            context_->scheduleWidgetPoll();
+        }
+    });
     context_->setConfigStore(&config_);
+
+    registerCallback("OnWidgetValueChanged");
+    registerCallback("OnSongChanged");
+    registerCallback("OnSongPartChanged");
+    registerCallback("OnRackspaceActivated");
 
     config_.load();
 
@@ -128,6 +139,7 @@ void LibMain::OnOpen()
     registerCallback("OnWidgetValueChanged");
     registerCallback("OnSongChanged");
     registerCallback("OnSongPartChanged");
+    registerCallback("OnRackspaceActivated");
 
     if (context_ != nullptr)
 
@@ -148,6 +160,7 @@ void LibMain::OnClose()
     unregisterCallback("OnWidgetValueChanged");
     unregisterCallback("OnSongChanged");
     unregisterCallback("OnSongPartChanged");
+    unregisterCallback("OnRackspaceActivated");
 
     if (mixer_ != nullptr)
     {
@@ -168,7 +181,7 @@ void LibMain::OnClose()
 
 
 
-void LibMain::OnWidgetValueChanged(const std::string &widgetName, double newValue)
+void LibMain::OnRackspaceActivated()
 
 {
 
@@ -178,11 +191,24 @@ void LibMain::OnWidgetValueChanged(const std::string &widgetName, double newValu
 
         context_->drainGpTasks();
 
-        if (mixer_ != nullptr)
-        {
-            context_->widgetBindings().onWidgetValueChanged(context_->gpHost(), *mixer_,
-                                                            widgetName, newValue);
-        }
+    }
+
+}
+
+
+
+void LibMain::OnWidgetValueChanged(const std::string &widgetName, double newValue)
+
+{
+
+    if (context_ != nullptr && mixer_ != nullptr)
+
+    {
+
+        context_->widgetBindings().onWidgetValueChanged(context_->gpHost(), *mixer_,
+                                                        widgetName, newValue);
+
+        context_->drainGpTasks();
 
     }
 

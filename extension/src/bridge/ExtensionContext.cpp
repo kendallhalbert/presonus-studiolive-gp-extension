@@ -29,4 +29,20 @@ void ExtensionContext::drainGpTasks()
     }
 }
 
+void ExtensionContext::scheduleWidgetPoll()
+{
+    if (widgetPollScheduled_.exchange(true))
+    {
+        return;
+    }
+
+    dispatcher_.post([this]() {
+        widgetPollScheduled_.store(false);
+        if (mixer_ != nullptr)
+        {
+            widgetBindings_.pollMixerToWidgets(gpHost_, *mixer_);
+        }
+    });
+}
+
 } // namespace presonus::studiolive::gpext::bridge

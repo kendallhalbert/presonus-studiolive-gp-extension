@@ -79,6 +79,9 @@ class MixerService
     /// Next `FR` / FD list request id (wraps at 16 bits).
     std::uint16_t allocateRequestId();
 
+    using StateChangeCallback = std::function<void()>;
+    void setStateChangeCallback(StateChangeCallback callback);
+
   private:
     using IoTask = std::function<void()>;
     struct FdWaitState
@@ -118,6 +121,8 @@ class MixerService
     std::mutex catalogMutex_;
     std::vector<protocol::FdFileEntry> projects_;
     std::unordered_map<std::string, std::vector<protocol::FdFileEntry>> scenesByProject_;
+
+    StateChangeCallback stateChangeCallback_;
 };
 
 } // namespace presonus::studiolive::gpext::mixer

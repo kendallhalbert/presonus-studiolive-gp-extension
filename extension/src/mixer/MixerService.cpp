@@ -5,15 +5,18 @@
 #include "protocol/FileRequest.h"
 #include "protocol/JmPacket.h"
 #include "protocol/MixerConnection.h"
+#include "protocol/MsParser.h"
 #include "protocol/ParamKeys.h"
 #include "protocol/PcEncoder.h"
 #include "protocol/PvEncoder.h"
+#include "protocol/PvParser.h"
 #include "protocol/ValueUtil.h"
 #include "transport/WinSockTransport.h"
 
 #include <cctype>
 #include <chrono>
 #include <utility>
+#include <variant>
 
 namespace presonus::studiolive::gpext::mixer
 {
@@ -26,6 +29,11 @@ constexpr const char *kProjectsListPath = "presets/proj";
 } // namespace
 
 MixerService::MixerService(bridge::Logger &logger) : logger_(logger) {}
+
+void MixerService::setStateChangeCallback(StateChangeCallback callback)
+{
+    stateChangeCallback_ = std::move(callback);
+}
 
 MixerService::~MixerService()
 {
@@ -207,6 +215,12 @@ bool MixerService::connect(const std::string &host, std::uint16_t port)
             [&handshake, this](const protocol::SessionPacket &packet) {
                 handshake.onSessionPacket(packet);
                 stateCache_.apply(packet);
+                if (stateChangeCallback_ &&
+                    (std::holds_alternative<protocol::PvMessage>(packet.payload) ||
+                     std::holds_alternative<protocol::MsMessage>(packet.payload)))
+                {
+                    stateChangeCallback_();
+                }
             });
         connection_->setJsonMessageCallback([&handshake](std::string_view json) {
             handshake.onJmJson(json);

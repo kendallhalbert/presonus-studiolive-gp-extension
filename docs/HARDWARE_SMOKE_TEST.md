@@ -301,18 +301,27 @@ Create two panel widgets before running this section:
 | Widget name | Type | Range |
 | ----------- | ---- | ----- |
 | `PSL_Fader` | Knob or slider | 0..1 |
-| `PSL_Mute` | Button or toggle | 0..1 |
+| `PSL_Mute` | **Switch** (toggle) | 0..1 |
+
+Use a **Switch**, not a momentary **Button** — buttons do not expose a stable value to the extension API and `BindLineMuteWidget` will return **False**.
 
 Reload the DLL, then paste (widget names are **strings** — no `Var … : Widget` needed for bind calls):
 
 ```gigperformer
 Initialization
+    SetTimersRunning(true)
     Print(PreSonusStudioLive_SetLogLevel("debug"))
     Print(PreSonusStudioLive_Connect("10.0.0.14"))
     Print(PreSonusStudioLive_BindLineLevelWidgetLinear("PSL_Fader", 1, 2))
     Print(PreSonusStudioLive_BindLineMuteWidget("PSL_Mute", 1, 2))
 End
+
+On TimerTick(milliseconds : Double)
+    Print(PreSonusStudioLive_IsConnected())
+End
 ```
+
+`SetTimersRunning(true)` enables the periodic **`On TimerTick`** callback (GP has no `On Timer(ms)` syntax). The timer drains mixer→widget updates (desk fader moves). Any extension call works; `IsConnected()` is a lightweight choice.
 
 `direction`: **0** = mixer→widget only, **1** = widget→mixer only, **2** = both (recommended).
 

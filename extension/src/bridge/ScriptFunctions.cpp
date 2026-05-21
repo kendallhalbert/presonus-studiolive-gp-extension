@@ -29,6 +29,14 @@ void drainIfOnGpThread()
     }
 }
 
+void finishWidgetBind(bool ok)
+{
+    if (ok)
+    {
+        drainIfOnGpThread();
+    }
+}
+
 mixer::MixerService *mixer()
 {
     if (ExtensionContext *ctx = ExtensionContext::instance())
@@ -471,6 +479,12 @@ extern "C" void psl_BindLineLevelWidgetLinear(GPRuntimeEngine *vm)
         ctx->widgetBindings().bindLineLevelLinear(
             ctx->gpHost(), widgetBuffer, channel,
             static_cast<WidgetDirection>(direction));
+    if (!ok && ctx != nullptr)
+    {
+        ctx->logger().warn(std::string("BindLineLevelWidgetLinear failed for widget '") +
+                           widgetBuffer + "'");
+    }
+    finishWidgetBind(ok);
     GP_VM_PushBoolean(vm, ok);
 }
 
@@ -489,6 +503,12 @@ extern "C" void psl_BindLineLevelWidgetDb(GPRuntimeEngine *vm)
         ctx->widgetBindings().bindLineLevelDb(
             ctx->gpHost(), widgetBuffer, channel,
             static_cast<WidgetDirection>(direction));
+    if (!ok && ctx != nullptr)
+    {
+        ctx->logger().warn(std::string("BindLineLevelWidgetDb failed for widget '") +
+                           widgetBuffer + "'");
+    }
+    finishWidgetBind(ok);
     GP_VM_PushBoolean(vm, ok);
 }
 
@@ -507,6 +527,13 @@ extern "C" void psl_BindLineMuteWidget(GPRuntimeEngine *vm)
         ctx->widgetBindings().bindLineMute(
             ctx->gpHost(), widgetBuffer, channel,
             static_cast<WidgetDirection>(direction));
+    if (!ok && ctx != nullptr)
+    {
+        ctx->logger().warn(std::string("BindLineMuteWidget failed for widget '") +
+                           widgetBuffer +
+                           "' (use a Switch/toggle widget, not a momentary Button)");
+    }
+    finishWidgetBind(ok);
     GP_VM_PushBoolean(vm, ok);
 }
 
@@ -525,6 +552,12 @@ extern "C" void psl_BindLineSoloWidget(GPRuntimeEngine *vm)
         ctx->widgetBindings().bindLineSolo(
             ctx->gpHost(), widgetBuffer, channel,
             static_cast<WidgetDirection>(direction));
+    if (!ok && ctx != nullptr)
+    {
+        ctx->logger().warn(std::string("BindLineSoloWidget failed for widget '") +
+                           widgetBuffer + "'");
+    }
+    finishWidgetBind(ok);
     GP_VM_PushBoolean(vm, ok);
 }
 

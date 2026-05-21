@@ -44,6 +44,7 @@ class LibMain final : public gigperformer::sdk::GigPerformerAPI
     void OnOpen() override;
     void OnClose() override;
 
+    void OnRackspaceActivated() override;
     void OnWidgetValueChanged(const std::string &widgetName, double newValue) override;
 
     void OnSongChanged(int oldIndex, int newIndex) override;

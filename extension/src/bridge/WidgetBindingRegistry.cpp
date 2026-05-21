@@ -32,14 +32,27 @@ bool WidgetBindingRegistry::allowsMixerToWidget(WidgetDirection direction) const
 
 bool WidgetBindingRegistry::bind(GpHost &host, const std::string &widget, Binding binding)
 {
-    if (!isLineChannelValid(binding.channel) || !host.widgetExists(widget))
+    if (!isLineChannelValid(binding.channel))
+    {
+        return false;
+    }
+
+    const bool exists = host.widgetExists(widget);
+    if (!exists && allowsMixerToWidget(binding.direction))
     {
         return false;
     }
 
     if (allowsWidgetToMixer(binding.direction))
     {
-        host.listenForWidget(widget, true);
+        if (!host.listenForWidget(widget, true))
+        {
+            return false;
+        }
+    }
+    else if (!exists)
+    {
+        return false;
     }
 
     bindings_[widget] = binding;
