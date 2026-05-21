@@ -65,7 +65,7 @@ std::string LibMain::GetProductDescription()
 
            "\" BuildDate=\"" __DATE__ "\"></Product>";
 
-    xml += "<Description>PreSonus StudioLive III mixer control for GPScript (";
+    xml += "<Description>Third-party Gig Performer extension for PreSonus StudioLive III mixers (UCNet). Not affiliated with or endorsed by PreSonus. (";
 
     xml += v;
 

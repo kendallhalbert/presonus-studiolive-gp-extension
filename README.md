@@ -6,6 +6,9 @@ mixer over UCNet (TCP port 53000). Control the desk from **GPScript** using
 `PreSonusStudioLive_*` functions — connect, LINE channel parameters, project/scene
 lists, and scene recall.
 
+**Independent third-party project** — not affiliated with, endorsed by, or sponsored
+by PreSonus Audio Electronics, Inc. or Gig Performer.
+
 This repo is the C++ implementation that supersedes the Node.js
 [`@featherbear/presonus-studiolive-api`](https://github.com/featherbear/presonus-studiolive-api)
 library. Wire-format behavior is validated against captured fixtures from a
@@ -216,6 +219,20 @@ GitHub Actions (`.github/workflows/ci.yml`) on `windows-2022`:
 4. Upload `PreSonusStudioLive.dll` as a workflow artifact
 
 Remote: https://github.com/kendallhalbert/presonus-studiolive-gp-extension
+
+---
+
+## Trademarks
+
+PreSonus® and StudioLive® are registered trademarks of [PreSonus Audio
+Electronics, Inc.](https://www.presonus.com/) UC Surface™ and UCNet™ are
+trademarks of PreSonus Audio Electronics, Inc. Gig Performer® is a trademark
+of Gig Performer LLC.
+
+This project is an **independent third-party extension**. It is **not**
+affiliated with, endorsed by, or sponsored by PreSonus Audio Electronics, Inc.
+or Gig Performer LLC. Trademarks are used only to identify compatible products
+and services (nominative fair use).
 
 ---
 
