@@ -470,6 +470,84 @@ std::optional<std::string> MixerService::getLineColor(int channel) const
     return stateCache_.stringKey(protocol::lineChannelColorKey(channel));
 }
 
+bool MixerService::setChannelMute(const protocol::ChannelTarget &target, bool muted)
+{
+    if (!isConnected())
+    {
+        return false;
+    }
+
+    bool wireMuted = muted;
+    if (protocol::sendMuteUsesInvertedAssign(target))
+    {
+        wireMuted = !muted;
+    }
+
+    sendPvBool(protocol::mutePvKey(target), wireMuted);
+    return true;
+}
+
+std::optional<bool> MixerService::getChannelMute(const protocol::ChannelTarget &target) const
+{
+    const auto wire = stateCache_.boolKey(protocol::mutePvKey(target));
+    if (!wire.has_value())
+    {
+        return std::nullopt;
+    }
+
+    if (protocol::sendMuteUsesInvertedAssign(target))
+    {
+        return !*wire;
+    }
+    return wire;
+}
+
+bool MixerService::setChannelLevelLinear(const protocol::ChannelTarget &target,
+                                         double levelPercent)
+{
+    if (!isConnected())
+    {
+        return false;
+    }
+
+    const float scalar = protocol::linearPercentToVolumeScalar(levelPercent);
+    const auto key = protocol::levelPvKey(target);
+    stateCache_.setFloat(key, levelPercent);
+    sendPvFloat(key, scalar);
+    return true;
+}
+
+std::optional<double> MixerService::getChannelLevelLinear(
+    const protocol::ChannelTarget &target) const
+{
+    const auto key = protocol::levelPvKey(target);
+    if (const auto level = stateCache_.doubleKey(key))
+    {
+        if (*level <= 1.0)
+        {
+            return protocol::volumeScalarToLinearPercent(*level);
+        }
+        return *level;
+    }
+    return std::nullopt;
+}
+
+bool MixerService::setChannelLevelDb(const protocol::ChannelTarget &target, double db)
+{
+    return setChannelLevelLinear(target, protocol::dbToLinearPercent(db));
+}
+
+std::optional<double> MixerService::getChannelLevelDb(
+    const protocol::ChannelTarget &target) const
+{
+    const auto linear = getChannelLevelLinear(target);
+    if (!linear.has_value())
+    {
+        return std::nullopt;
+    }
+    return protocol::linearPercentToDb(*linear);
+}
+
 bool MixerService::requestFileList(const std::string &path)
 {
     if (!isConnected())

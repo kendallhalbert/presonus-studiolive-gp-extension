@@ -1,6 +1,7 @@
 #pragma once
 
 #include "bridge/Logger.h"
+#include "protocol/ChannelKeys.h"
 #include "protocol/FdParser.h"
 #include "state/KvCache.h"
 
@@ -54,6 +55,15 @@ class MixerService
 
     bool setLineColor(int channel, const std::string &rgbHex);
     std::optional<std::string> getLineColor(int channel) const;
+
+    bool setChannelMute(const protocol::ChannelTarget &target, bool muted);
+    std::optional<bool> getChannelMute(const protocol::ChannelTarget &target) const;
+
+    bool setChannelLevelLinear(const protocol::ChannelTarget &target, double levelPercent);
+    std::optional<double> getChannelLevelLinear(const protocol::ChannelTarget &target) const;
+
+    bool setChannelLevelDb(const protocol::ChannelTarget &target, double db);
+    std::optional<double> getChannelLevelDb(const protocol::ChannelTarget &target) const;
 
     bool requestFileList(const std::string &path);
 

@@ -296,13 +296,21 @@ Paste into your session notes (or an issue):
 
 ## 7. Widget binding (Phase 3)
 
-Add panel widgets named **`PSL_Fader`** (knob/slider 0..1) and **`PSL_Mute`** (button or toggle).
+Create two panel widgets before running this section:
+
+| Widget name | Type | Range |
+| ----------- | ---- | ----- |
+| `PSL_Fader` | Knob or slider | 0..1 |
+| `PSL_Mute` | Button or toggle | 0..1 |
+
+Reload the DLL, then paste:
 
 ```gigperformer
 Var PSL_Fader : Widget
 Var PSL_Mute : Widget
 
 Initialization
+    Print(PreSonusStudioLive_SetLogLevel("debug"))
     Print(PreSonusStudioLive_Connect("10.0.0.14"))
     Print(PreSonusStudioLive_BindLineLevelWidgetLinear("PSL_Fader", 1, 2))
     Print(PreSonusStudioLive_BindLineMuteWidget("PSL_Mute", 1, 2))
@@ -311,12 +319,52 @@ End
 
 `direction`: **0** = mixer→widget only, **1** = widget→mixer only, **2** = both (recommended).
 
+### What to observe
+
 | Step | Pass? | Notes |
 | ---- | ----- | ----- |
-| Bind calls return true | | Widget names must match panel exactly |
-| Move **desk** fader → GP widget follows | | direction 0 or 2 |
-| Move **GP** fader → desk follows | | direction 1 or 2 |
-| Toggle GP mute → desk mute LED | | |
-| Toggle desk mute → GP widget follows | | |
+| Both `Bind*` calls return **True** | | False → widget name mismatch or widget missing from panel |
+| Move **desk** input 1 fader → `PSL_Fader` follows | | May lag one GP script tick |
+| Move **`PSL_Fader`** → desk fader follows | | |
+| Toggle **`PSL_Mute`** high → input 1 mutes on desk | | Uses >= 0.5 as muted |
+| Toggle desk mute → `PSL_Mute` follows | | |
+| `extension.log` shows PV traffic | | No errors |
 
-Song→scene (optional): `Print(PreSonusStudioLive_BindSongToScene(0, "01.West End Girls.proj", "01.Live Performance.scn"))` then change GP setlist song.
+**If desk→widget never updates:** bindings only poll when GP calls an extension function or `OnWidgetValueChanged` fires. Move the desk, then touch any bound widget or add a slow widget handler to force polls.
+
+**If widget→desk does not work:** confirm `direction` is **1** or **2** and the extension registered `OnWidgetValueChanged` (reload libraries after DLL update).
+
+Song→scene (optional):
+
+```gigperformer
+Print(PreSonusStudioLive_BindSongToScene(0, "01.West End Girls.proj", "01.Live Performance.scn"))
+```
+
+Change GP setlist song index **0** — desk should recall **Live Performance**.
+
+## 8. AUX / FX send levels (Phase 2)
+
+Route **input 1** to **AUX 1** in UC Surface first (fixture `06-pv-aux-send-level` was skipped when ch1 was not routed).
+
+```gigperformer
+Initialization
+    Print(PreSonusStudioLive_Connect("10.0.0.14"))
+    Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "AUX", 1, 75.0))
+    Print(PreSonusStudioLive_GetLevelLinear("LINE", 1, "AUX", 1))
+    Print(PreSonusStudioLive_SetMute("LINE", 1, "AUX", 1, 0))
+    Print(PreSonusStudioLive_GetMute("LINE", 1, "AUX", 1))
+    Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "FX", 1, 50.0))
+End
+```
+
+For **main mix**, pass empty mix type and mix number **0**:
+
+```gigperformer
+Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "", 0, 50.0))
+```
+
+| Step | Pass? | Desk moved? | Notes |
+| ---- | ----- | ----------- | ----- |
+| AUX 1 send fader → 75% | | | Key `line/ch1/AUX1` |
+| AUX 1 send un-muted (`SetMute(..., 0)`) | | | Uses `assign_aux1` (inverted) |
+| FX 1 send fader → 50% | | | Key `line/ch1/FXA` |

@@ -1,12 +1,12 @@
 #include "bridge/ScriptFunctions.h"
 
-#include "bridge/ChannelUtil.h"
 #include "bridge/ConfigStore.h"
 #include "bridge/ExtensionContext.h"
 #include "bridge/FileLogSink.h"
 #include "bridge/LogLevelUtil.h"
 #include "bridge/WidgetBindingRegistry.h"
 #include "mixer/MixerService.h"
+#include "protocol/ChannelKeys.h"
 #include "Version.h"
 
 #include "gigperformer/sdk/imports.h"
@@ -41,11 +41,6 @@ mixer::MixerService *mixer()
 ExtensionContext *context()
 {
     return ExtensionContext::instance();
-}
-
-bool mixTargetIsMain(std::string_view mixType, int mixNumber)
-{
-    return mixType.empty() && mixNumber == 0;
 }
 
 extern "C" void psl_Version(GPRuntimeEngine *vm)
@@ -342,9 +337,10 @@ extern "C" void psl_SetMute(GPRuntimeEngine *vm)
     GP_VM_PopString(vm, typeBuffer, static_cast<int>(sizeof(typeBuffer)));
 
     mixer::MixerService *const svc = mixer();
-    const bool ok = svc != nullptr && isLineChannelType(typeBuffer) &&
-                    mixTargetIsMain(mixTypeBuffer, mixNumber) &&
-                    svc->setLineMute(channel, mutedFlag != 0);
+    const auto target =
+        protocol::parseChannelTarget(typeBuffer, channel, mixTypeBuffer, mixNumber);
+    const bool ok = svc != nullptr && target.has_value() &&
+                    svc->setChannelMute(*target, mutedFlag != 0);
     GP_VM_PushBoolean(vm, ok);
 }
 
@@ -360,14 +356,15 @@ extern "C" void psl_GetMute(GPRuntimeEngine *vm)
     GP_VM_PopString(vm, typeBuffer, static_cast<int>(sizeof(typeBuffer)));
 
     mixer::MixerService *const svc = mixer();
-    if (svc == nullptr || !isLineChannelType(typeBuffer) ||
-        !mixTargetIsMain(mixTypeBuffer, mixNumber))
+    const auto target =
+        protocol::parseChannelTarget(typeBuffer, channel, mixTypeBuffer, mixNumber);
+    if (svc == nullptr || !target.has_value())
     {
         GP_VM_PushBoolean(vm, false);
         return;
     }
 
-    const std::optional<bool> muted = svc->getLineMute(channel);
+    const std::optional<bool> muted = svc->getChannelMute(*target);
     GP_VM_PushBoolean(vm, muted.value_or(false));
 }
 
@@ -384,9 +381,10 @@ extern "C" void psl_SetLevelLinear(GPRuntimeEngine *vm)
     GP_VM_PopString(vm, typeBuffer, static_cast<int>(sizeof(typeBuffer)));
 
     mixer::MixerService *const svc = mixer();
-    const bool ok = svc != nullptr && isLineChannelType(typeBuffer) &&
-                    mixTargetIsMain(mixTypeBuffer, mixNumber) &&
-                    svc->setLineLevelLinear(channel, level);
+    const auto target =
+        protocol::parseChannelTarget(typeBuffer, channel, mixTypeBuffer, mixNumber);
+    const bool ok = svc != nullptr && target.has_value() &&
+                    svc->setChannelLevelLinear(*target, level);
     GP_VM_PushBoolean(vm, ok);
 }
 
@@ -402,14 +400,15 @@ extern "C" void psl_GetLevelLinear(GPRuntimeEngine *vm)
     GP_VM_PopString(vm, typeBuffer, static_cast<int>(sizeof(typeBuffer)));
 
     mixer::MixerService *const svc = mixer();
-    if (svc == nullptr || !isLineChannelType(typeBuffer) ||
-        !mixTargetIsMain(mixTypeBuffer, mixNumber))
+    const auto target =
+        protocol::parseChannelTarget(typeBuffer, channel, mixTypeBuffer, mixNumber);
+    if (svc == nullptr || !target.has_value())
     {
         GP_VM_PushDouble(vm, 0.0);
         return;
     }
 
-    const std::optional<double> level = svc->getLineLevelLinear(channel);
+    const std::optional<double> level = svc->getChannelLevelLinear(*target);
     GP_VM_PushDouble(vm, level.value_or(0.0));
 }
 
@@ -426,9 +425,10 @@ extern "C" void psl_SetLevelDb(GPRuntimeEngine *vm)
     GP_VM_PopString(vm, typeBuffer, static_cast<int>(sizeof(typeBuffer)));
 
     mixer::MixerService *const svc = mixer();
-    const bool ok = svc != nullptr && isLineChannelType(typeBuffer) &&
-                    mixTargetIsMain(mixTypeBuffer, mixNumber) &&
-                    svc->setLineLevelDb(channel, db);
+    const auto target =
+        protocol::parseChannelTarget(typeBuffer, channel, mixTypeBuffer, mixNumber);
+    const bool ok =
+        svc != nullptr && target.has_value() && svc->setChannelLevelDb(*target, db);
     GP_VM_PushBoolean(vm, ok);
 }
 
@@ -444,14 +444,15 @@ extern "C" void psl_GetLevelDb(GPRuntimeEngine *vm)
     GP_VM_PopString(vm, typeBuffer, static_cast<int>(sizeof(typeBuffer)));
 
     mixer::MixerService *const svc = mixer();
-    if (svc == nullptr || !isLineChannelType(typeBuffer) ||
-        !mixTargetIsMain(mixTypeBuffer, mixNumber))
+    const auto target =
+        protocol::parseChannelTarget(typeBuffer, channel, mixTypeBuffer, mixNumber);
+    if (svc == nullptr || !target.has_value())
     {
         GP_VM_PushDouble(vm, -84.0);
         return;
     }
 
-    const std::optional<double> db = svc->getLineLevelDb(channel);
+    const std::optional<double> db = svc->getChannelLevelDb(*target);
     GP_VM_PushDouble(vm, db.value_or(-84.0));
 }
 
@@ -747,42 +748,42 @@ ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
         "SetMute",
         "type : String, channel : Integer, mixType : String, mixNumber : Integer, muted : Integer",
         "Returns Boolean",
-        "Mute/unmute a channel (LINE + main mix only in this build).",
+        "Mute/unmute a channel or send (mixType AUX/FX; empty mixType = main).",
         &psl_SetMute,
     },
     {
         "GetMute",
         "type : String, channel : Integer, mixType : String, mixNumber : Integer",
         "Returns Boolean",
-        "Read mute state (LINE + main mix only).",
+        "Read mute/send state (AUX/FX assign uses inverted semantics).",
         &psl_GetMute,
     },
     {
         "SetLevelLinear",
         "type : String, channel : Integer, mixType : String, mixNumber : Integer, level : Double",
         "Returns Boolean",
-        "Set fader level 0..100 (LINE + main mix only).",
+        "Set fader level 0..100 (main volume or AUX/FX send level).",
         &psl_SetLevelLinear,
     },
     {
         "GetLevelLinear",
         "type : String, channel : Integer, mixType : String, mixNumber : Integer",
         "Returns Double",
-        "Read fader level 0..100 (LINE + main mix only).",
+        "Read fader level 0..100.",
         &psl_GetLevelLinear,
     },
     {
         "SetLevelDb",
         "type : String, channel : Integer, mixType : String, mixNumber : Integer, db : Double",
         "Returns Boolean",
-        "Set fader level in dB -84..+10 (LINE + main mix only).",
+        "Set fader level in dB -84..+10.",
         &psl_SetLevelDb,
     },
     {
         "GetLevelDb",
         "type : String, channel : Integer, mixType : String, mixNumber : Integer",
         "Returns Double",
-        "Read fader level in dB (LINE + main mix only).",
+        "Read fader level in dB.",
         &psl_GetLevelDb,
     },
     {

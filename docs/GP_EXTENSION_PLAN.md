@@ -39,23 +39,24 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-20 | Phase 2: LINE level/solo/pan/color GPScript + project/scene list/recall; **48 tests** green. |
 | 2026-05-21 | **Hardware smoke test complete** on 32R @ `10.0.0.14` — LINE mute/level/solo/pan/color, project/scene list, scene recall (JM RestorePreset). Scene list filters `.cnfg`; recall fixed from FR Open to JM. |
 | 2026-05-21 | Phase 2 slice: generic `SetMute`/`SetLevelLinear`/`SetLevelDb` (LINE main mix), `GetCurrentProject`/`Scene`, dB curve. Phase 3 slice: widget bindings, song→scene bindings. |
+| 2026-05-21 | Phase 2: AUX/FX send routing via `ChannelKeys`; generic mute/level GPScript accepts `mixType`/`mixNumber`; **58 tests** green. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-21 (Phase 2 hardware complete; Phase 3 widget slice landed)**
+**Last updated: 2026-05-21 (AUX/FX generic API; widget doc expanded)**
 
 ### TL;DR
 
 Phase 0 **complete** on GP 5 Pro. Phase 1 wire + TCP session layer **done**.
-**Phase 2 mostly done:** LINE shortcuts + generic LINE main-mix mute/level (linear + dB),
+**Phase 2 mostly done:** LINE shortcuts + generic mute/level (linear + dB) for **main, AUX, and FX sends**,
 `GetCurrentProject`/`Scene`, project/scene list, **JM RestorePreset** scene recall.
 **Phase 3 slice:** LINE widget bindings (`BindLineLevelWidgetLinear/Db`, mute, solo),
 song→scene bindings (`BindSongToScene`, `OnSongChanged`).
-**55 tests** green (26 executables). **Hardware verified on 32R @ `10.0.0.14`:**
+**58 tests** green (27 executables). **Hardware verified on 32R @ `10.0.0.14`:**
 connect, mute, level, solo, pan, color, project/scene list, scene recall.
-**Next:** hardware widget binding test → AUX/FX generic API → fade transitions → Phase 4 discovery.
+**Next:** hardware widget binding test → AUX/FX send hardware test → fade transitions → Phase 4 discovery.
 
 ### What's done
 
@@ -75,8 +76,8 @@ connect, mute, level, solo, pan, color, project/scene list, scene recall.
 | **Wire-level fixtures** | `tests/fixtures/` — StudioLive 32R, fw 3.3.0.109659; `04-jm-subscription-reply/` added for handshake tests |
 | **GP-bridge** | `extension/src/bridge/` — Logger, FileLogSink, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore, AppPaths |
 | **Phase 1** | `extension/src/protocol/` + `extension/src/transport/` — parsers, `MixerConnection`, `KeepAlive`, `FdAssembler`, `JmPacket`, `ConnectionHandshake` |
-| **Phase 2 (slice)** | `KvCache`, handshake, LINE mute/level/solo/pan/color GPScript, FD project/scene list + `RecallProjectScene`, connect/log APIs |
-| **Hardware smoke test** | **Complete 2026-05-21** — all LINE APIs + scene recall; see `docs/HARDWARE_SMOKE_TEST.md` |
+| **Phase 2 (slice)** | `KvCache`, handshake, LINE mute/level/solo/pan/color GPScript, FD project/scene list + `RecallProjectScene`, connect/log APIs, **AUX/FX send keys** (`ChannelKeys`) |
+| **Hardware smoke test** | **LINE complete 2026-05-21** — widget + AUX sections in `docs/HARDWARE_SMOKE_TEST.md` §7–§8 |
 | **Phase 3 (slice)** | Widget binding registry, LINE widget GPScript, song→scene bindings |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
@@ -209,9 +210,10 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
-| GPScript generic channel API | Agent | AUX/FX/send routing still TODO; LINE main-mix generic API done |
+| GPScript generic channel API | Agent | Main + AUX/FX **send** routing done; other channel types (RETURN, DCA, etc.) still TODO |
 | UDP discovery | Agent | Phase 4 — fixture `01-discovery-broadcast` still skipped |
-| Widget binding hardware test | User | Bind fader/mute widgets in GP panel; verify two-way sync |
+| Widget binding hardware test | User | §7 in `HARDWARE_SMOKE_TEST.md` — bind fader/mute; verify two-way sync |
+| AUX/FX send hardware test | User | §8 — route ch1→AUX1 in UC Surface first |
 | Fade transitions (`fadeMs`) | Agent | Phase 2 remainder |
 
 ### Phase 0 GP-side smoke test (updated 2026-05-20)
@@ -260,8 +262,9 @@ extension enabled, script editor reopened after reload, and Product XML uses
 11. ~~**Agent**: UCNet handshake on `Connect`~~ **Done 2026-05-20** (`0d4a79b`).
 12. ~~**Agent**: Phase 2 LINE slice + hardware validation~~ **Done 2026-05-21**.
 13. ~~**Agent**: Phase 3 widget binding slice~~ **Done 2026-05-21** (LINE widgets + song bindings).
-14. **User**: widget binding hardware test in GP panel.
-15. Continue Phase 2 remainder (AUX sends, fades) + Phase 4–5 per §5.
+14. **User**: widget binding hardware test in GP panel (§7).
+15. **User**: AUX/FX send hardware test (§8).
+16. Continue Phase 2 remainder (fades, other channel types) + Phase 4–5 per §5.
 
 ### How to reproduce the verified build from scratch
 
