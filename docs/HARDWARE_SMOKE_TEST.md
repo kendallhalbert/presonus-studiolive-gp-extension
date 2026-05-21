@@ -303,12 +303,9 @@ Create two panel widgets before running this section:
 | `PSL_Fader` | Knob or slider | 0..1 |
 | `PSL_Mute` | Button or toggle | 0..1 |
 
-Reload the DLL, then paste:
+Reload the DLL, then paste (widget names are **strings** — no `Var … : Widget` needed for bind calls):
 
 ```gigperformer
-Var PSL_Fader : Widget
-Var PSL_Mute : Widget
-
 Initialization
     Print(PreSonusStudioLive_SetLogLevel("debug"))
     Print(PreSonusStudioLive_Connect("10.0.0.14"))
@@ -329,6 +326,8 @@ End
 | Toggle **`PSL_Mute`** high → input 1 mutes on desk | | Uses >= 0.5 as muted |
 | Toggle desk mute → `PSL_Mute` follows | | |
 | `extension.log` shows PV traffic | | No errors |
+
+**If rackspace fails to compile with `Unexpected token: 'widget'`:** older DLL builds registered a GPScript parameter named `widget`, which clashes with GPScript's `Widget` type. Rebuild/install the latest DLL (parameter renamed to `widgetName`).
 
 **If desk→widget never updates:** bindings only poll when GP calls an extension function or `OnWidgetValueChanged` fires. Move the desk, then touch any bound widget or add a slow widget handler to force polls.
 
