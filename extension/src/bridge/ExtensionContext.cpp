@@ -1,6 +1,7 @@
 #include "bridge/ExtensionContext.h"
 
 #include "bridge/GpHost.h"
+#include "mixer/MixerService.h"
 
 namespace presonus::studiolive::gpext::bridge
 {
@@ -19,6 +20,13 @@ ExtensionContext::ExtensionContext(GpHost &gpHost, Dispatcher &dispatcher, Logge
 {
 }
 
-void ExtensionContext::drainGpTasks() { dispatcher_.drain(); }
+void ExtensionContext::drainGpTasks()
+{
+    dispatcher_.drain();
+    if (mixer_ != nullptr)
+    {
+        widgetBindings_.pollMixerToWidgets(gpHost_, *mixer_);
+    }
+}
 
 } // namespace presonus::studiolive::gpext::bridge

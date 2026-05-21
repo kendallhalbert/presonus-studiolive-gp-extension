@@ -37,24 +37,25 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-20 | **Hardware smoke test passed** on **StudioLive 32R** @ `10.0.0.14` — line 1 mute from GPScript moves desk. See `docs/HARDWARE_SMOKE_TEST.md`. |
 | 2026-05-20 | Phase 2: `KvCache` (PV/PS/PC/MS + ZB flatten), `GetLineMute`, optimistic mute cache; **41 tests** green. |
 | 2026-05-20 | Phase 2: LINE level/solo/pan/color GPScript + project/scene list/recall; **48 tests** green. |
-| 2026-05-20 | Bookmark refresh: repo HEAD `03fe9be`, hardware matrix (mute verified; other LINE APIs pending). |
+| 2026-05-21 | **Hardware smoke test complete** on 32R @ `10.0.0.14` — LINE mute/level/solo/pan/color, project/scene list, scene recall (JM RestorePreset). Scene list filters `.cnfg`; recall fixed from FR Open to JM. |
+| 2026-05-21 | Phase 2 slice: generic `SetMute`/`SetLevelLinear`/`SetLevelDb` (LINE main mix), `GetCurrentProject`/`Scene`, dB curve. Phase 3 slice: widget bindings, song→scene bindings. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-20 (Phase 2 — LINE controls + scene list)**
+**Last updated: 2026-05-21 (Phase 2 hardware complete; Phase 3 widget slice landed)**
 
 ### TL;DR
 
 Phase 0 **complete** on GP 5 Pro. Phase 1 wire + TCP session layer **done**.
-**Phase 2 in progress:** UCNet handshake, `KvCache`, LINE mute/level/solo/pan/color
-GPScript, blocking FD project/scene lists, `RecallProjectScene` (FR Open).
-**48 tests** green (24 executables). **Hardware verified on 32R @ `10.0.0.14`:**
-connect, mute set/get on desk. **Not yet verified on hardware:** level, solo, pan,
-color, project/scene list, scene recall.
-**Next:** hardware pass on new LINE APIs → generic `type`/`mixType` (§4.3–4.6), dB
-faders, fades → Phase 3 widgets.
+**Phase 2 mostly done:** LINE shortcuts + generic LINE main-mix mute/level (linear + dB),
+`GetCurrentProject`/`Scene`, project/scene list, **JM RestorePreset** scene recall.
+**Phase 3 slice:** LINE widget bindings (`BindLineLevelWidgetLinear/Db`, mute, solo),
+song→scene bindings (`BindSongToScene`, `OnSongChanged`).
+**55 tests** green (26 executables). **Hardware verified on 32R @ `10.0.0.14`:**
+connect, mute, level, solo, pan, color, project/scene list, scene recall.
+**Next:** hardware widget binding test → AUX/FX generic API → fade transitions → Phase 4 discovery.
 
 ### What's done
 
@@ -75,7 +76,8 @@ faders, fades → Phase 3 widgets.
 | **GP-bridge** | `extension/src/bridge/` — Logger, FileLogSink, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore, AppPaths |
 | **Phase 1** | `extension/src/protocol/` + `extension/src/transport/` — parsers, `MixerConnection`, `KeepAlive`, `FdAssembler`, `JmPacket`, `ConnectionHandshake` |
 | **Phase 2 (slice)** | `KvCache`, handshake, LINE mute/level/solo/pan/color GPScript, FD project/scene list + `RecallProjectScene`, connect/log APIs |
-| **Hardware smoke test** | **Partial 2026-05-20** — connect + mute on desk; see `docs/HARDWARE_SMOKE_TEST.md` |
+| **Hardware smoke test** | **Complete 2026-05-21** — all LINE APIs + scene recall; see `docs/HARDWARE_SMOKE_TEST.md` |
+| **Phase 3 (slice)** | Widget binding registry, LINE widget GPScript, song→scene bindings |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
 ### GP smoke test notes (2026-05-20, confirmed)
@@ -126,13 +128,13 @@ Mixer: **StudioLive 32R**, fw **3.3.0.109659**. Runbook: `docs/HARDWARE_SMOKE_TE
 | --- | --------------- | ----- |
 | `Connect` / `IsConnected` | **Verified 2026-05-20** | Handshake ~few s |
 | `SetLineMute` / `GetLineMute` | **Verified 2026-05-20** | Mute LED/state on desk |
-| `SetLineLevelLinear` / `GetLineLevelLinear` | **Not run** | Linear PV `volume`; confirm fader law on desk |
-| `SetLineSolo` / `GetLineSolo` | **Not run** | Key `line/chN/solo` not in capture log |
-| `SetLinePan` / `GetLinePan` | **Not run** | |
-| `SetLineColor` / `GetLineColor` | **Not run** | |
-| `GetProjectCount` / `GetProjectName` | **Not run** | First call blocks ~5s (FD list) |
-| `GetSceneCount` / `GetSceneName` | **Not run** | |
-| `RecallProjectScene` | **Not run** | FR `Open` path not in session capture |
+| `SetLineLevelLinear` / `GetLineLevelLinear` | **Verified 2026-05-21** | Fader moves on desk |
+| `SetLineSolo` / `GetLineSolo` | **Verified 2026-05-21** | Solo LED on desk |
+| `SetLinePan` / `GetLinePan` | **Verified 2026-05-21** | Pan moves on desk |
+| `SetLineColor` / `GetLineColor` | **Verified 2026-05-21** | Color strip on desk |
+| `GetProjectCount` / `GetProjectName` | **Verified 2026-05-21** | FD list (~100 projects on test desk) |
+| `GetSceneCount` / `GetSceneName` | **Verified 2026-05-21** | Filters `.cnfg`; index 1 = first `.scn` |
+| `RecallProjectScene` | **Verified 2026-05-21** | JM `RestorePreset` (not FR Open) |
 | `extension.log` | **Verified** | `%APPDATA%\PreSonusStudioLive\extension.log` |
 
 GPScript notes: functions with return values must be used in `Print(...)` or
@@ -207,11 +209,10 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
-| GPScript generic channel API | Agent | Full `type`/`mixType` mute/level/solo (§4.3–4.4); LINE shortcuts done |
+| GPScript generic channel API | Agent | AUX/FX/send routing still TODO; LINE main-mix generic API done |
 | UDP discovery | Agent | Phase 4 — fixture `01-discovery-broadcast` still skipped |
-| Widget binding | Agent | Phase 3 — registry, feedback-loop suppression |
-| Optional fixture re-capture (`01`, `06`, `18`) | User | Low priority |
-| Hardware validation (level/solo/pan/color/scenes) | User | After installing DLL built from `03fe9be` |
+| Widget binding hardware test | User | Bind fader/mute widgets in GP panel; verify two-way sync |
+| Fade transitions (`fadeMs`) | Agent | Phase 2 remainder |
 
 ### Phase 0 GP-side smoke test (updated 2026-05-20)
 
@@ -257,8 +258,10 @@ extension enabled, script editor reopened after reload, and Product XML uses
 9. ~~**Agent**: Phase 1 protocol port~~ **Done** (TCP session, KeepAlive, FD, JM subscribe path).
 10. ~~**User**: hardware smoke test on 32R~~ **Done 2026-05-20** — mute on desk confirmed @ `10.0.0.14`.
 11. ~~**Agent**: UCNet handshake on `Connect`~~ **Done 2026-05-20** (`0d4a79b`).
-12. **Agent**: Phase 2 — **in progress** (generic channel API + dB levels; LINE slice + scene list done).
-13. Continue Phases 3–5 per §5.
+12. ~~**Agent**: Phase 2 LINE slice + hardware validation~~ **Done 2026-05-21**.
+13. ~~**Agent**: Phase 3 widget binding slice~~ **Done 2026-05-21** (LINE widgets + song bindings).
+14. **User**: widget binding hardware test in GP panel.
+15. Continue Phase 2 remainder (AUX sends, fades) + Phase 4–5 per §5.
 
 ### How to reproduce the verified build from scratch
 

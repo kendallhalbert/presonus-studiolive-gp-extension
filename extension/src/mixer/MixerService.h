@@ -43,6 +43,9 @@ class MixerService
     bool setLineLevelLinear(int channel, double levelPercent);
     std::optional<double> getLineLevelLinear(int channel) const;
 
+    bool setLineLevelDb(int channel, double db);
+    std::optional<double> getLineLevelDb(int channel) const;
+
     bool setLineSolo(int channel, bool soloed);
     std::optional<bool> getLineSolo(int channel) const;
 
@@ -59,6 +62,9 @@ class MixerService
     int getSceneCount(const std::string &projectFile);
     std::string getSceneName(const std::string &projectFile, int index);
     bool recallProjectScene(const std::string &projectFile, const std::string &sceneFile);
+
+    std::string getCurrentProjectFile() const;
+    std::string getCurrentSceneFile() const;
 
     /// Next `FR` / FD list request id (wraps at 16 bits).
     std::uint16_t allocateRequestId();
@@ -84,6 +90,7 @@ class MixerService
     static std::string sceneListPath(const std::string &projectFile);
     static std::string sceneRecallPath(const std::string &projectFile,
                                        const std::string &sceneFile);
+    static std::string fileNameFromLoadedPath(const std::string &loadedPath);
 
     bridge::Logger &logger_;
     state::KvCache stateCache_;

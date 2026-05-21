@@ -126,6 +126,8 @@ void LibMain::OnOpen()
 {
 
     registerCallback("OnWidgetValueChanged");
+    registerCallback("OnSongChanged");
+    registerCallback("OnSongPartChanged");
 
     if (context_ != nullptr)
 
@@ -144,6 +146,8 @@ void LibMain::OnClose()
 {
 
     unregisterCallback("OnWidgetValueChanged");
+    unregisterCallback("OnSongChanged");
+    unregisterCallback("OnSongPartChanged");
 
     if (mixer_ != nullptr)
     {
@@ -174,14 +178,61 @@ void LibMain::OnWidgetValueChanged(const std::string &widgetName, double newValu
 
         context_->drainGpTasks();
 
+        if (mixer_ != nullptr)
+        {
+            context_->widgetBindings().onWidgetValueChanged(context_->gpHost(), *mixer_,
+                                                            widgetName, newValue);
+        }
+
     }
 
-    (void)widgetName;
+}
 
-    (void)newValue;
 
-    // Phase 3: widget→mixer command queue.
 
+void LibMain::OnSongChanged(int /*oldIndex*/, int newIndex)
+
+{
+
+    currentSongIndex_ = newIndex;
+
+    if (context_ == nullptr || mixer_ == nullptr)
+    {
+        return;
+    }
+
+    context_->drainGpTasks();
+
+    const auto binding = context_->songBindings().lookupSong(newIndex);
+    if (!binding.has_value())
+    {
+        return;
+    }
+
+    mixer_->recallProjectScene(binding->projectFile, binding->sceneFile);
+}
+
+
+
+void LibMain::OnSongPartChanged(int /*oldIndex*/, int newIndex)
+
+{
+
+    if (context_ == nullptr || mixer_ == nullptr || currentSongIndex_ < 0)
+    {
+        return;
+    }
+
+    context_->drainGpTasks();
+
+    const auto binding =
+        context_->songBindings().lookupSongPart(currentSongIndex_, newIndex);
+    if (!binding.has_value())
+    {
+        return;
+    }
+
+    mixer_->recallProjectScene(binding->projectFile, binding->sceneFile);
 }
 
 

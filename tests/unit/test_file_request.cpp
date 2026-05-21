@@ -23,10 +23,11 @@ TEST(FileRequest, ListProjectsMatchesSessionCapture)
     EXPECT_NE(text.find("Listpresets/proj"), std::string::npos);
 }
 
-TEST(FileRequest, OpenScenePath)
+TEST(FileRequest, OpenScenePathIsNotUsedForRecall)
 {
+    // Scene recall uses JM RestorePreset (see test_jm_packet.cpp), not FR Open.
     const auto packet = presonus::studiolive::gpext::protocol::createFileOpenRequestPacket(
-        0x1234, "presets/proj/01.West End Girls.proj/Scene1.scene");
+        0x1234, "presets/proj/01.West End Girls.proj/01.Live Performance.scn");
 
     const auto wire = presonus::studiolive::gpext::protocol::analysePacket(packet);
     ASSERT_TRUE(wire.has_value());
@@ -34,7 +35,7 @@ TEST(FileRequest, OpenScenePath)
 
     const std::string text(reinterpret_cast<const char *>(wire->payload.data() + 2),
                            wire->payload.size() - 2);
-    EXPECT_NE(text.find("Openpresets/proj/01.West End Girls.proj/Scene1.scene"),
+    EXPECT_NE(text.find("Openpresets/proj/01.West End Girls.proj/01.Live Performance.scn"),
               std::string::npos);
 }
 

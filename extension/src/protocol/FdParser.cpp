@@ -1,5 +1,7 @@
 #include "protocol/FdParser.h"
 
+#include <cctype>
+
 namespace presonus::studiolive::gpext::protocol
 {
 
@@ -77,6 +79,39 @@ std::optional<std::vector<FdFileEntry>> parseFdFileList(std::string_view json)
         return std::nullopt;
     }
     return entries;
+}
+
+bool isFdSceneFile(std::string_view name)
+{
+    constexpr std::string_view suffix = ".scn";
+    if (name.size() < suffix.size())
+    {
+        return false;
+    }
+    const std::string_view tail = name.substr(name.size() - suffix.size());
+    for (std::size_t i = 0; i < suffix.size(); ++i)
+    {
+        if (std::tolower(static_cast<unsigned char>(tail[i])) !=
+            std::tolower(static_cast<unsigned char>(suffix[i])))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::vector<FdFileEntry> filterFdSceneFiles(const std::vector<FdFileEntry> &entries)
+{
+    std::vector<FdFileEntry> filtered;
+    filtered.reserve(entries.size());
+    for (const auto &entry : entries)
+    {
+        if (isFdSceneFile(entry.name))
+        {
+            filtered.push_back(entry);
+        }
+    }
+    return filtered;
 }
 
 } // namespace presonus::studiolive::gpext::protocol

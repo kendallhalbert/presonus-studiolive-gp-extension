@@ -15,4 +15,10 @@ float panPercentToScalar(double panPercent);
 /// PV pan scalar to GPScript pan percent.
 double panScalarToPercent(double scalar);
 
+/// GPScript dB fader (-84..+10) to linear percent (0..100), PreSonus curve.
+double dbToLinearPercent(double db);
+
+/// Linear percent (0..100) to GPScript dB (-84..+10), inverse of dbToLinearPercent.
+double linearPercentToDb(double linearPercent);
+
 } // namespace presonus::studiolive::gpext::protocol

@@ -358,6 +358,27 @@ std::optional<double> MixerService::getLineLevelLinear(int channel) const
     return std::nullopt;
 }
 
+bool MixerService::setLineLevelDb(int channel, double db)
+{
+    if (channel < 1 || !isConnected())
+    {
+        return false;
+    }
+
+    const double linear = protocol::dbToLinearPercent(db);
+    return setLineLevelLinear(channel, linear);
+}
+
+std::optional<double> MixerService::getLineLevelDb(int channel) const
+{
+    const auto linear = getLineLevelLinear(channel);
+    if (!linear.has_value())
+    {
+        return std::nullopt;
+    }
+    return protocol::linearPercentToDb(*linear);
+}
+
 bool MixerService::setLineSolo(int channel, bool soloed)
 {
     if (channel < 1 || !isConnected())
@@ -478,6 +499,34 @@ std::string MixerService::sceneRecallPath(const std::string &projectFile,
     return sceneListPath(projectFile) + "/" + sceneFile;
 }
 
+std::string MixerService::fileNameFromLoadedPath(const std::string &loadedPath)
+{
+    const auto pos = loadedPath.find_last_of('/');
+    if (pos == std::string::npos)
+    {
+        return loadedPath;
+    }
+    return loadedPath.substr(pos + 1);
+}
+
+std::string MixerService::getCurrentProjectFile() const
+{
+    if (const auto loaded = stateCache_.stringKey("presets/loaded_project_name"))
+    {
+        return fileNameFromLoadedPath(*loaded);
+    }
+    return {};
+}
+
+std::string MixerService::getCurrentSceneFile() const
+{
+    if (const auto loaded = stateCache_.stringKey("presets/loaded_scene_name"))
+    {
+        return fileNameFromLoadedPath(*loaded);
+    }
+    return {};
+}
+
 int MixerService::getProjectCount()
 {
     {
@@ -528,6 +577,8 @@ int MixerService::getSceneCount(const std::string &projectFile)
         return 0;
     }
 
+    fetched = protocol::filterFdSceneFiles(fetched);
+
     {
         std::lock_guard lock(catalogMutex_);
         scenesByProject_[projectFile] = std::move(fetched);
@@ -558,9 +609,9 @@ bool MixerService::recallProjectScene(const std::string &projectFile,
         return false;
     }
 
-    const std::uint16_t requestId = allocateRequestId();
-    const auto path = sceneRecallPath(projectFile, sceneFile);
-    const auto packet = protocol::createFileOpenRequestPacket(requestId, path);
+    const auto presetFile = sceneRecallPath(projectFile, sceneFile);
+    logger_.info("Recall scene JM RestorePreset: " + presetFile);
+    const auto packet = protocol::createRestorePresetPacket(presetFile);
     enqueue([this, packet = std::move(packet)]() {
         if (connection_)
         {

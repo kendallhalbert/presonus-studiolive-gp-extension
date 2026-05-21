@@ -36,6 +36,21 @@ TEST(JmPacket, ExtractsJmJsonBody)
     EXPECT_TRUE(presonus::studiolive::gpext::protocol::isSubscriptionReplyJson(*json));
 }
 
+TEST(JmPacket, RestorePresetSceneMatchesJsApi)
+{
+    const auto packet = presonus::studiolive::gpext::protocol::createRestorePresetPacket(
+        "presets/proj/01.West End Girls.proj/01.Live Performance.scn");
+    const auto wire = presonus::studiolive::gpext::protocol::analysePacket(packet);
+    ASSERT_TRUE(wire.has_value());
+    EXPECT_EQ(wire->messageCode, "JM");
+
+    const auto json = presonus::studiolive::gpext::protocol::extractJmJson(wire->payload);
+    ASSERT_TRUE(json.has_value());
+    EXPECT_NE(json->find("RestorePreset"), std::string::npos);
+    EXPECT_NE(json->find("01.Live Performance.scn"), std::string::npos);
+    EXPECT_NE(json->find("presetTargetSlave"), std::string::npos);
+}
+
 TEST(ConnectionHandshake, CompletesOnZbAndSubscriptionReply)
 {
     presonus::studiolive::gpext::protocol::ConnectionHandshake handshake;

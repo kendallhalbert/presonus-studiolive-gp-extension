@@ -2,6 +2,8 @@
 
 #include "bridge/Dispatcher.h"
 #include "bridge/Logger.h"
+#include "bridge/SongBindingTable.h"
+#include "bridge/WidgetBindingRegistry.h"
 
 namespace presonus::studiolive::gpext::mixer
 {
@@ -27,6 +29,8 @@ class ExtensionContext
     const GpHost &gpHost() const { return gpHost_; }
     Dispatcher &dispatcher() { return dispatcher_; }
     Logger &logger() { return logger_; }
+    WidgetBindingRegistry &widgetBindings() { return widgetBindings_; }
+    SongBindingTable &songBindings() { return songBindings_; }
 
     /// Run queued IO→GP tasks on the current (GP) thread.
     void drainGpTasks();
@@ -41,6 +45,8 @@ class ExtensionContext
     GpHost &gpHost_;
     Dispatcher &dispatcher_;
     Logger &logger_;
+    WidgetBindingRegistry widgetBindings_;
+    SongBindingTable songBindings_;
     mixer::MixerService *mixer_{nullptr};
     ConfigStore *config_{nullptr};
 };

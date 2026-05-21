@@ -9,7 +9,13 @@ cd C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension
 cmake --build build-rel --config Release --parallel
 ```
 
-Copy `build-rel\bin\Release\PreSonusStudioLive.dll` into your GP **Extensions** folder. Typical paths:
+Copy `build-rel\bin\Release\PreSonusStudioLive.dll` into your GP **Extensions** folder, or run:
+
+```powershell
+.\tools\install-gp-release.ps1
+```
+
+Typical Extensions paths:
 
 - `C:\Users\Public\Documents\Gig Performer\Extensions\`
 - `%USERPROFILE%\Documents\Gig Performer\Extensions\`
@@ -86,6 +92,125 @@ End
 
 > GPScript may not support `Wait()` in all contexts; prefer separate widget/button handlers if Initialization runs too fast.
 
+### Phase 2 — unverified APIs (ready to paste)
+
+Covers **level, solo, pan, color, project/scene list**, and optional **scene recall**.
+Mute is included as a baseline (already verified on hardware). Uses **input 1** as LINE.
+
+Edit `10.0.0.14` if your 32R is on a different address. The first
+`GetProjectCount()` call **blocks the GP script thread for several seconds** while FD
+file lists arrive — the UI may look frozen briefly; that is expected.
+
+```gigperformer
+// Phase 2 hardware smoke — LINE level/solo/pan/color + project/scene list
+Var projectFile : String
+Var sceneFile : String
+
+Initialization
+    Print(PreSonusStudioLive_SetLogLevel("debug"))
+    Print(PreSonusStudioLive_LogFilePath())
+    Print(PreSonusStudioLive_Version())
+    Print(PreSonusStudioLive_Connect("10.0.0.14"))
+    Print(PreSonusStudioLive_IsConnected())
+
+    // Mute baseline (verified 2026-05-20)
+    Print(PreSonusStudioLive_SetLineMute(1, 1))
+    Print(PreSonusStudioLive_GetLineMute(1))
+    Print(PreSonusStudioLive_SetLineMute(1, 0))
+    Print(PreSonusStudioLive_GetLineMute(1))
+
+    // Level — linear 0..100 (percent of fader travel)
+    Print(PreSonusStudioLive_SetLineLevelLinear(1, 75.0))
+    Print(PreSonusStudioLive_GetLineLevelLinear(1))
+    Print(PreSonusStudioLive_SetLineLevelLinear(1, 25.0))
+    Print(PreSonusStudioLive_GetLineLevelLinear(1))
+    Print(PreSonusStudioLive_SetLineLevelLinear(1, 50.0))
+    Print(PreSonusStudioLive_GetLineLevelLinear(1))
+
+    // Solo — 1 = on, 0 = off (solo key not in capture fixtures; verify on desk)
+    Print(PreSonusStudioLive_SetLineSolo(1, 1))
+    Print(PreSonusStudioLive_GetLineSolo(1))
+    Print(PreSonusStudioLive_SetLineSolo(1, 0))
+    Print(PreSonusStudioLive_GetLineSolo(1))
+
+    // Pan — 0 = full left, 50 = center, 100 = full right
+    Print(PreSonusStudioLive_SetLinePan(1, 0.0))
+    Print(PreSonusStudioLive_GetLinePan(1))
+    Print(PreSonusStudioLive_SetLinePan(1, 100.0))
+    Print(PreSonusStudioLive_GetLinePan(1))
+    Print(PreSonusStudioLive_SetLinePan(1, 50.0))
+    Print(PreSonusStudioLive_GetLinePan(1))
+
+    // Color — RRGGBB or #RRGGBB
+    Print(PreSonusStudioLive_SetLineColor(1, "FF0000"))
+    Print(PreSonusStudioLive_GetLineColor(1))
+    Print(PreSonusStudioLive_SetLineColor(1, "0000FF"))
+    Print(PreSonusStudioLive_GetLineColor(1))
+
+    // Project / scene catalog (1-based indexes; blocks on first list fetch)
+    Print(PreSonusStudioLive_GetProjectCount())
+    projectFile = PreSonusStudioLive_GetProjectName(1)
+    Print(projectFile)
+    Print(PreSonusStudioLive_GetSceneCount(projectFile))
+    sceneFile = PreSonusStudioLive_GetSceneName(projectFile, 1)
+    Print(sceneFile)
+
+    // Optional — loads scene 1 of project 1 on the desk (uncomment to test recall)
+    // Print(PreSonusStudioLive_RecallProjectScene(projectFile, sceneFile))
+End
+```
+
+**If string assignment fails** (`projectFile = PreSonusStudioLive_GetProjectName(1)`), read
+project/scene file names from the GP log after `GetProjectCount()`, then call the scene APIs
+with literals from a widget handler, e.g.
+`Print(PreSonusStudioLive_GetSceneCount("01.West End Girls.proj"))` (names vary by mixer).
+
+**Stepped widget version** — add a knob/slider named `PSL_Phase2`, then paste:
+
+```gigperformer
+Var PSL_Phase2 : Widget
+Var projectFile : String
+Var sceneFile : String
+
+On WidgetValueChanged(newValue : Double) from PSL_Phase2
+    if newValue < 0.1
+        Print(PreSonusStudioLive_Connect("10.0.0.14"))
+        Print(PreSonusStudioLive_IsConnected())
+    elsif newValue < 0.2
+        Print(PreSonusStudioLive_SetLineLevelLinear(1, 75.0))
+        Print(PreSonusStudioLive_GetLineLevelLinear(1))
+    elsif newValue < 0.3
+        Print(PreSonusStudioLive_SetLineLevelLinear(1, 25.0))
+    elsif newValue < 0.4
+        Print(PreSonusStudioLive_SetLineSolo(1, 1))
+        Print(PreSonusStudioLive_GetLineSolo(1))
+    elsif newValue < 0.5
+        Print(PreSonusStudioLive_SetLineSolo(1, 0))
+    elsif newValue < 0.6
+        Print(PreSonusStudioLive_SetLinePan(1, 0.0))
+        Print(PreSonusStudioLive_GetLinePan(1))
+    elsif newValue < 0.7
+        Print(PreSonusStudioLive_SetLinePan(1, 100.0))
+        Print(PreSonusStudioLive_SetLinePan(1, 50.0))
+    elsif newValue < 0.8
+        Print(PreSonusStudioLive_SetLineColor(1, "FF0000"))
+        Print(PreSonusStudioLive_GetLineColor(1))
+    elsif newValue < 0.9
+        Print(PreSonusStudioLive_GetProjectCount())
+        projectFile = PreSonusStudioLive_GetProjectName(1)
+        Print(projectFile)
+        Print(PreSonusStudioLive_GetSceneCount(projectFile))
+        sceneFile = PreSonusStudioLive_GetSceneName(projectFile, 1)
+        Print(sceneFile)
+    else
+        Print(PreSonusStudioLive_RecallProjectScene(projectFile, sceneFile))
+    end
+End
+```
+
+Turn the widget slowly in bands (0–10%, 10–20%, …) so you can watch the desk between steps.
+The top band recalls a scene — only use it when you are ready for the loaded scene to change.
+
 ## 4. What to observe
 
 ### Gig Performer log
@@ -106,9 +231,25 @@ Look for session banner, `Mixer connected to <ip>`, and any warnings.
 
 ### Mixer surface
 
-Watch **input 1** mute LED / UC Surface mute state when you call `SetLineMute(1, 1)` then `(1, 0)`.
+Watch **input 1** on the desk or in UC Surface:
+
+| API | What should move |
+| --- | ---------------- |
+| `SetLineMute` | Mute LED / mute button state |
+| `SetLineLevelLinear` | Channel 1 fader (75% → 25% → 50%) |
+| `SetLineSolo` | Solo LED / solo bus indicator |
+| `SetLinePan` | Pan knob (hard left → hard right → center) |
+| `SetLineColor` | Channel color strip (red → blue) |
+| `RecallProjectScene` | Loaded project/scene title changes |
+
+For project/scene list APIs, confirm the GP log shows a **non-zero** `GetProjectCount`, sensible `GetProjectName(1)` (e.g. `01.West End Girls.proj`), and matching scene file names. **`GetSceneName(1)` must be a `.scn` file** (e.g. `01.Live Performance.scn`), not a `.cnfg` project config.
+Empty strings or `0` counts usually mean FD list fetch failed — check `extension.log`.
+
+`RecallProjectScene` returning **True** only means the JM RestorePreset packet was **sent**; confirm the loaded scene title changes on the desk. After recall, check `extension.log` for `Recall scene JM RestorePreset: presets/proj/...`.
 
 ## 5. Record results
+
+### Connection (verified 2026-05-20)
 
 | Step | Pass? | Notes |
 | ---- | ----- | ----- |
@@ -120,7 +261,23 @@ Watch **input 1** mute LED / UC Surface mute state when you call `SetLineMute(1,
 | Input 1 mute **changes on desk** | | |
 | `SetLineMute` returns true | | |
 
+### Phase 2 — unverified (fill in after paste block above)
+
+| Step | Pass? | Desk moved? | Notes |
+| ---- | ----- | ----------- | ----- |
+| `SetLineLevelLinear` / `GetLineLevelLinear` | | | Fader at 75 / 25 / 50 |
+| `SetLineSolo` / `GetLineSolo` | | | Solo on then off |
+| `SetLinePan` / `GetLinePan` | | | L / R / center |
+| `SetLineColor` / `GetLineColor` | | | Red then blue |
+| `GetProjectCount` > 0 | | n/a | GP may pause ~5 s |
+| `GetProjectName(1)` non-empty | | n/a | |
+| `GetSceneCount` > 0 | | n/a | |
+| `GetSceneName(1)` non-empty | | n/a | |
+| `RecallProjectScene` (optional) | | | Loaded scene changed |
+
 **If connect works but mute does not move the desk:** rebuild with a DLL that includes UCNet handshake (JM Subscribe + wait for ZB + `SubscriptionReply`). Older builds only opened TCP without subscribing.
+
+**If `RecallProjectScene` returns True but the desk does not change:** confirm `GetSceneName(1)` ends in `.scn` (not `.cnfg`). Check `extension.log` for `Recall scene JM RestorePreset:` (not the old FR Open path).
 
 **If connect fails:** verify IP, firewall, and that nothing else holds the TCP session.
 
@@ -132,5 +289,34 @@ Paste into your session notes (or an issue):
 - 32R firmware (e.g. 3.3.0.109659)
 - Mixer IP
 - Connect true/false
-- Mute on desk yes/no
-- Last ~20 lines of `extension.log`
+- Mute / level / solo / pan / color — desk yes/no for each
+- Project count and first project/scene names from GP log
+- Scene recall true/false (if tested)
+- Last ~30 lines of `extension.log`
+
+## 7. Widget binding (Phase 3)
+
+Add panel widgets named **`PSL_Fader`** (knob/slider 0..1) and **`PSL_Mute`** (button or toggle).
+
+```gigperformer
+Var PSL_Fader : Widget
+Var PSL_Mute : Widget
+
+Initialization
+    Print(PreSonusStudioLive_Connect("10.0.0.14"))
+    Print(PreSonusStudioLive_BindLineLevelWidgetLinear("PSL_Fader", 1, 2))
+    Print(PreSonusStudioLive_BindLineMuteWidget("PSL_Mute", 1, 2))
+End
+```
+
+`direction`: **0** = mixer→widget only, **1** = widget→mixer only, **2** = both (recommended).
+
+| Step | Pass? | Notes |
+| ---- | ----- | ----- |
+| Bind calls return true | | Widget names must match panel exactly |
+| Move **desk** fader → GP widget follows | | direction 0 or 2 |
+| Move **GP** fader → desk follows | | direction 1 or 2 |
+| Toggle GP mute → desk mute LED | | |
+| Toggle desk mute → GP widget follows | | |
+
+Song→scene (optional): `Print(PreSonusStudioLive_BindSongToScene(0, "01.West End Girls.proj", "01.Live Performance.scn"))` then change GP setlist song.

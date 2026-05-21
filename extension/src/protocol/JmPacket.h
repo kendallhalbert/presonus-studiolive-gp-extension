@@ -22,4 +22,10 @@ std::vector<std::uint8_t> createSubscribePacket();
 
 std::vector<std::uint8_t> createUnsubscribePacket();
 
+/// JM RestorePreset — project/scene/channel recall (port of JS `recallProjectScene`).
+std::vector<std::uint8_t> createRestorePresetJmPayload(const std::string &presetFile,
+                                                         const std::string &presetTarget = "");
+std::vector<std::uint8_t> createRestorePresetPacket(const std::string &presetFile,
+                                                    const std::string &presetTarget = "");
+
 } // namespace presonus::studiolive::gpext::protocol

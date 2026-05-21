@@ -30,6 +30,37 @@ std::vector<std::uint8_t> wrapJsonPayload(std::string json)
     return payload;
 }
 
+std::string escapeJsonString(std::string_view value)
+{
+    std::string escaped;
+    escaped.reserve(value.size() + 8);
+    for (const char ch : value)
+    {
+        switch (ch)
+        {
+        case '\\':
+            escaped += "\\\\";
+            break;
+        case '"':
+            escaped += "\\\"";
+            break;
+        default:
+            escaped.push_back(ch);
+            break;
+        }
+    }
+    return escaped;
+}
+
+std::string buildRestorePresetJson(const std::string &presetFile,
+                                   const std::string &presetTarget)
+{
+    return std::string("{\n") + " \"id\": \"RestorePreset\",\n" + " \"url\": \"presets\",\n" +
+           " \"presetTarget\": \"" + escapeJsonString(presetTarget) + "\",\n" +
+           " \"presetTargetSlave\": 0,\n" + " \"presetFile\": \"" +
+           escapeJsonString(presetFile) + "\"\n" + "}";
+}
+
 // Matches Node JSON.stringify(obj, null, " ") — one-space indent per capture.
 constexpr const char *kSubscribeJson = R"({
  "id": "Subscribe",
@@ -83,6 +114,18 @@ std::vector<std::uint8_t> createSubscribePacket()
 std::vector<std::uint8_t> createUnsubscribePacket()
 {
     return createPacket("JM", wrapJsonPayload(kUnsubscribeJson));
+}
+
+std::vector<std::uint8_t> createRestorePresetJmPayload(const std::string &presetFile,
+                                                       const std::string &presetTarget)
+{
+    return wrapJsonPayload(buildRestorePresetJson(presetFile, presetTarget));
+}
+
+std::vector<std::uint8_t> createRestorePresetPacket(const std::string &presetFile,
+                                                    const std::string &presetTarget)
+{
+    return createPacket("JM", createRestorePresetJmPayload(presetFile, presetTarget));
 }
 
 } // namespace presonus::studiolive::gpext::protocol

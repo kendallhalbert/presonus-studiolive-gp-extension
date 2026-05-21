@@ -23,6 +23,9 @@ add_library(psl_bridge STATIC
   src/bridge/ExtensionContext.cpp
   src/bridge/ScriptFunctions.cpp
   src/bridge/ConfigStore.cpp
+  src/bridge/ChannelUtil.cpp
+  src/bridge/WidgetBindingRegistry.cpp
+  src/bridge/SongBindingTable.cpp
   src/mixer/MixerService.cpp)
 
 add_library(psl_protocol STATIC

@@ -46,6 +46,9 @@ class LibMain final : public gigperformer::sdk::GigPerformerAPI
 
     void OnWidgetValueChanged(const std::string &widgetName, double newValue) override;
 
+    void OnSongChanged(int oldIndex, int newIndex) override;
+    void OnSongPartChanged(int oldIndex, int newIndex) override;
+
     // ---- GPScript -------------------------------------------------------
     // Note: GPScript_AllowedLocations and ExternalAPI_GPScriptFunctionDefinition
     // are C types in the global namespace (declared inside extern "C" in
@@ -63,6 +66,7 @@ class LibMain final : public gigperformer::sdk::GigPerformerAPI
     std::unique_ptr<bridge::ExtensionContext> context_;
     std::unique_ptr<mixer::MixerService> mixer_;
     std::unique_ptr<bridge::FileLogSink> fileLog_;
+    int currentSongIndex_{-1};
 
     LibMain(const LibMain &) = delete;
     LibMain &operator=(const LibMain &) = delete;

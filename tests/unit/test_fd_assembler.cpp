@@ -38,4 +38,25 @@ TEST(FdAssembler, ProjectsListReassemblesJson)
     EXPECT_EQ((*files)[1].name, "02.Rush.proj");
 }
 
+TEST(FdParser, SceneListFiltersCnfgAndKeepsScn)
+{
+    // From session capture: List presets/proj/01.West End Girls.proj (2026-05-18)
+    constexpr const char *kSceneListJson =
+        R"({"files": [{"name": "West End Girls.cnfg", "title": "West End Girls.cnfg"}, )"
+        R"({"name": "01.Live Performance.scn", "title": "Live Performance"}, )"
+        R"({"name": "02._ Empty Location _.scn", "title": "* Empty Location *"}]})";
+
+    const auto files = presonus::studiolive::gpext::protocol::parseFdFileList(kSceneListJson);
+    ASSERT_TRUE(files.has_value());
+    EXPECT_EQ(files->size(), 3u);
+
+    const auto scenes = presonus::studiolive::gpext::protocol::filterFdSceneFiles(*files);
+    ASSERT_EQ(scenes.size(), 2u);
+    EXPECT_EQ(scenes[0].name, "01.Live Performance.scn");
+    EXPECT_EQ(scenes[0].title, "Live Performance");
+    EXPECT_EQ(scenes[1].name, "02._ Empty Location _.scn");
+    EXPECT_FALSE(presonus::studiolive::gpext::protocol::isFdSceneFile("West End Girls.cnfg"));
+    EXPECT_TRUE(presonus::studiolive::gpext::protocol::isFdSceneFile("01.Live Performance.scn"));
+}
+
 } // namespace
