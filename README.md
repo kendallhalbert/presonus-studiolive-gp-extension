@@ -14,12 +14,12 @@ This repo is the C++ implementation that supersedes the Node.js
 library. Wire-format behavior is validated against captured fixtures from a
 **StudioLive 32R** (firmware 3.3.0.109659).
 
-> **Status (2026-05-21):** Phases 0–1 **complete**. **Phase 2** mostly done: UCNet handshake,
+> **Status (2026-05-22):** Phases 0–1 **complete**. **Phase 2** mostly done: UCNet handshake,
 > LINE shortcuts, generic mute/level (main + AUX/FX sends, linear + dB), **fade transitions**
-> (`fadeMs`), project/scene list/recall. **Phase 3** slice: LINE widget bindings (hardware
-> verified), song→scene bindings (optional §9 test). **60 unit tests** across 27 executables.
-> **Hardware verified** on a 32R @ `10.0.0.14`: connect, LINE controls, scene recall, widget
-> mirroring (§7), AUX/FX sends (§8). Fades (§10) and song→scene (§9) not yet re-checked on desk.
+> (`fadeMs`), project/scene list/recall. **Phase 3** slice: LINE widget bindings and song→scene
+> bindings — both hardware verified. **60 unit tests** across 27 executables.
+> **Hardware smoke test complete** on a 32R @ `10.0.0.14` (§1–§10 in `docs/HARDWARE_SMOKE_TEST.md`).
+> **Next:** Phase 4 UDP discovery.
 >
 > Design, roadmap, and phase detail:
 > [`docs/GP_EXTENSION_PLAN.md`](docs/GP_EXTENSION_PLAN.md).

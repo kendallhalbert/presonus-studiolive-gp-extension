@@ -369,9 +369,17 @@ Print(PreSonusStudioLive_SetLevelLinear("LINE", 1, "", 0, 50.0, 0))
 | AUX 1 send un-muted (`SetMute(..., 0)`) | | | Uses `assign_aux1` (inverted) |
 | FX 1 send fader → 50% | | | Key `line/ch1/FXA` |
 
-## 9. Song → scene binding (Phase 3, optional)
+## 9. Song → scene binding (Phase 3)
 
-List projects/scenes first (§6), then bind GP setlist song index **0** to a known scene:
+**Status:** **hardware-verified 2026-05-22** on 32R @ `10.0.0.14`.
+
+List projects/scenes first (§6), then bind GP setlist song index **0** to a known scene.
+Recall is driven by the extension C++ `OnSongChanged` callback — **no GPScript `On Song` handler required**
+(put `BindSongToScene` in rackspace `Initialization` only).
+
+**Setlist mode required.** Switch songs from the GP setlist UI (not rackspace variations). If you are
+already on song **0**, switch to another song first, then back to **0** — `OnSongChanged` fires only
+on a change.
 
 ```gigperformer
 Initialization
@@ -388,7 +396,7 @@ End
 
 ## 10. Fade transitions (Phase 2)
 
-**Status:** coded, **not yet hardware-verified** on 32R.
+**Status:** **hardware-verified 2026-05-22** on 32R @ `10.0.0.14`.
 
 Fades run on the mixer IO thread (ease-in-out sine, ~10 ms steps). Pass **`fadeMs`** as the last argument; **0** = instant (same as before).
 
