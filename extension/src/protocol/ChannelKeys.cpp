@@ -44,7 +44,7 @@ std::optional<std::string> wireTypeFromGpscript(std::string_view type)
     {
         return "sub";
     }
-    if (upper == "MAIN")
+    if (upper == "MAIN" || upper == "MASTER")
     {
         return "main";
     }
@@ -56,7 +56,17 @@ std::optional<std::string> wireTypeFromGpscript(std::string_view type)
     {
         return "talkback";
     }
+    if (upper == "MONO")
+    {
+        return "mono";
+    }
     return std::nullopt;
+}
+
+bool forcesUnitChannel(std::string_view type)
+{
+    const std::string upper = toUpper(type);
+    return upper == "MAIN" || upper == "MASTER" || upper == "TALKBACK" || upper == "MONO";
 }
 
 std::optional<MixKind> mixKindFromGpscript(std::string_view mixType)
@@ -84,16 +94,25 @@ std::string channelBaseKey(const ChannelTarget &target)
 
 } // namespace
 
+std::optional<std::string> gpscriptTypeToWireType(std::string_view type)
+{
+    return wireTypeFromGpscript(type);
+}
+
 std::optional<ChannelTarget> parseChannelTarget(std::string_view type, int channel,
                                                  std::string_view mixType, int mixNumber)
 {
-    if (channel < 1)
+    const auto wireType = wireTypeFromGpscript(type);
+    if (!wireType.has_value())
     {
         return std::nullopt;
     }
 
-    const auto wireType = wireTypeFromGpscript(type);
-    if (!wireType.has_value())
+    if (forcesUnitChannel(type))
+    {
+        channel = 1;
+    }
+    else if (channel < 1)
     {
         return std::nullopt;
     }
@@ -158,6 +177,21 @@ std::string mutePvKey(const ChannelTarget &target)
 bool sendMuteUsesInvertedAssign(const ChannelTarget &target)
 {
     return target.mixKind == MixKind::Aux || target.mixKind == MixKind::Fx;
+}
+
+std::string soloPvKey(const ChannelTarget &target)
+{
+    return channelBaseKey(target) + "/solo";
+}
+
+std::string panPvKey(const ChannelTarget &target)
+{
+    return channelBaseKey(target) + "/pan";
+}
+
+std::string colorPcKey(const ChannelTarget &target)
+{
+    return channelBaseKey(target) + "/color";
 }
 
 std::string channelPresetTarget(const ChannelTarget &target)

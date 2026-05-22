@@ -28,6 +28,9 @@ class KvCache
     std::optional<double> doubleKey(std::string_view key) const;
     std::optional<std::string> stringKey(std::string_view key) const;
 
+    /// Count `{wireType}/chN/…` entries seen in the flat cache (from ZB/PV/MS).
+    int countChannelsForWireType(std::string_view wireType) const;
+
   private:
     void applyPv(const protocol::PvMessage &message);
     void applyPs(const protocol::PsMessage &message);

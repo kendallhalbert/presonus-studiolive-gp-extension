@@ -97,4 +97,19 @@ TEST(KvCache, OptimisticBoolRoundTrip)
     EXPECT_FALSE(cache.boolKey("line/ch2/mute").value_or(true));
 }
 
+TEST(KvCache, CountChannelsForWireType)
+{
+    presonus::studiolive::gpext::state::KvCache cache;
+    cache.setFloat("line/ch1/level", 50.0);
+    cache.setFloat("line/ch32/level", 50.0);
+    cache.setFloat("return/ch1/level", 10.0);
+    cache.setFloat("return/ch2/level", 10.0);
+    cache.setFloat("filtergroup/ch4/volume", 75.0);
+
+    EXPECT_EQ(cache.countChannelsForWireType("line"), 32);
+    EXPECT_EQ(cache.countChannelsForWireType("return"), 2);
+    EXPECT_EQ(cache.countChannelsForWireType("filtergroup"), 4);
+    EXPECT_EQ(cache.countChannelsForWireType("sub"), 0);
+}
+
 } // namespace

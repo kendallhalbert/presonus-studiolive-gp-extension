@@ -1,6 +1,7 @@
 #pragma once
 
 #include "bridge/GpHost.h"
+#include "protocol/ChannelKeys.h"
 
 #include <chrono>
 #include <optional>
@@ -17,10 +18,10 @@ namespace presonus::studiolive::gpext::bridge
 
 enum class WidgetBindingKind
 {
-    LineLevelLinear,
-    LineLevelDb,
-    LineMute,
-    LineSolo,
+    LevelLinear,
+    LevelDb,
+    Mute,
+    Solo,
 };
 
 enum class WidgetDirection : int
@@ -34,6 +35,15 @@ enum class WidgetDirection : int
 class WidgetBindingRegistry
 {
   public:
+    bool bindLevelLinear(GpHost &host, const std::string &widget,
+                         const protocol::ChannelTarget &target, WidgetDirection direction);
+    bool bindLevelDb(GpHost &host, const std::string &widget,
+                     const protocol::ChannelTarget &target, WidgetDirection direction);
+    bool bindMute(GpHost &host, const std::string &widget,
+                  const protocol::ChannelTarget &target, WidgetDirection direction);
+    bool bindSolo(GpHost &host, const std::string &widget,
+                  const protocol::ChannelTarget &target, WidgetDirection direction);
+
     bool bindLineLevelLinear(GpHost &host, const std::string &widget, int channel,
                              WidgetDirection direction);
     bool bindLineLevelDb(GpHost &host, const std::string &widget, int channel,
@@ -55,7 +65,7 @@ class WidgetBindingRegistry
     {
         WidgetBindingKind kind{};
         WidgetDirection direction{WidgetDirection::Both};
-        int channel{0};
+        protocol::ChannelTarget target{};
     };
 
     struct Suppression

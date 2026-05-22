@@ -80,6 +80,20 @@ class MixerService
     bool setChannelLevelDb(const protocol::ChannelTarget &target, double db, int fadeMs = 0);
     std::optional<double> getChannelLevelDb(const protocol::ChannelTarget &target) const;
 
+    bool setChannelSolo(const protocol::ChannelTarget &target, bool soloed);
+    std::optional<bool> getChannelSolo(const protocol::ChannelTarget &target) const;
+
+    bool setChannelPan(const protocol::ChannelTarget &target, double panPercent);
+    std::optional<double> getChannelPan(const protocol::ChannelTarget &target) const;
+
+    bool setChannelColor(const protocol::ChannelTarget &target, const std::string &rgbHex);
+    std::optional<std::string> getChannelColor(const protocol::ChannelTarget &target) const;
+
+    bool toggleChannelMute(const protocol::ChannelTarget &target);
+    bool toggleChannelSolo(const protocol::ChannelTarget &target);
+
+    int getChannelCount(const std::string &type) const;
+
     bool requestFileList(const std::string &path);
 
     int getProjectCount();

@@ -517,3 +517,92 @@ End
 3. Watch the **Fat Channel** (EQ/gate/comp), not just the fader — desk recall filters may hide fader/name changes.
 4. Check `extension.log` for `JM recv:` after recall (mixer error/reply). Paste that line if still failing.
 5. Rebuild/install latest DLL — recall now sends `channelfilters/preset_*` PV packets before `RestorePreset`.
+
+## 14. Other channel types — RETURN / DCA / SUB (Phase 2 remainder)
+
+**Status:** **hardware-verified 2026-05-22** on 32R @ `10.0.0.14` (serial `RA3E18090022`).
+
+Extends generic GPScript beyond LINE shortcuts: **mute, level, solo, pan, color**, and **`GetChannelCount`** for RETURN, DCA (`filtergroup` on the wire), SUB, MAIN, and AUX bus faders. Uses the same `type` / `channel` / `mixType` / `mixNumber` selector as §8; pass `""` and `0` for main-mix controls.
+
+After §12 auto-connect, omit `Connect(...)` when `IsConnected()` is already **True**. Pick channels that exist on your show file — defaults below use **Return 1**, **DCA 1**, **Sub 1** (32R has 2 returns, 8 DCAs, 4 subs in factory layout).
+
+> GP `Print(0)` shows blank — use `extension.log` for `GetChannelCount` values and PV key traffic.
+
+```gigperformer
+// Phase 2 remainder — RETURN / DCA / SUB main-mix controls
+Initialization
+    Print(PreSonusStudioLive_SetLogLevel("debug"))
+    Print(PreSonusStudioLive_IsConnected())
+
+    // Channel counts from handshake state cache (0 until connected)
+    Print(PreSonusStudioLive_GetChannelCount("LINE"))
+    Print(PreSonusStudioLive_GetChannelCount("RETURN"))
+    Print(PreSonusStudioLive_GetChannelCount("DCA"))
+    Print(PreSonusStudioLive_GetChannelCount("SUB"))
+
+    // RETURN 1 — mute, level, solo, pan
+    Print(PreSonusStudioLive_SetMute("RETURN", 1, "", 0, 1))
+    Print(PreSonusStudioLive_GetMute("RETURN", 1, "", 0))
+    Print(PreSonusStudioLive_ToggleMute("RETURN", 1, "", 0))
+    Print(PreSonusStudioLive_SetLevelLinear("RETURN", 1, "", 0, 60.0, 0))
+    Print(PreSonusStudioLive_GetLevelLinear("RETURN", 1, "", 0))
+    Print(PreSonusStudioLive_SetSolo("RETURN", 1, 1))
+    Print(PreSonusStudioLive_GetSolo("RETURN", 1))
+    Print(PreSonusStudioLive_ToggleSolo("RETURN", 1))
+    Print(PreSonusStudioLive_SetPan("RETURN", 1, 25.0))
+    Print(PreSonusStudioLive_SetPan("RETURN", 1, 50.0))
+
+    // DCA 1 — mute, level, solo, pan, color
+    Print(PreSonusStudioLive_SetMute("DCA", 1, "", 0, 0))
+    Print(PreSonusStudioLive_SetLevelLinear("DCA", 1, "", 0, 75.0, 0))
+    Print(PreSonusStudioLive_GetLevelLinear("DCA", 1, "", 0))
+    Print(PreSonusStudioLive_SetSolo("DCA", 1, 1))
+    Print(PreSonusStudioLive_ToggleSolo("DCA", 1))
+    Print(PreSonusStudioLive_SetPan("DCA", 1, 50.0))
+    Print(PreSonusStudioLive_SetColor("DCA", 1, "00FF00"))
+    Print(PreSonusStudioLive_GetColor("DCA", 1))
+
+    // SUB 1 — mute + level
+    Print(PreSonusStudioLive_SetMute("SUB", 1, "", 0, 0))
+    Print(PreSonusStudioLive_SetLevelLinear("SUB", 1, "", 0, 50.0, 0))
+    Print(PreSonusStudioLive_GetLevelLinear("SUB", 1, "", 0))
+
+    // MAIN + AUX bus faders (channel index ignored for MAIN — always ch1)
+    Print(PreSonusStudioLive_SetLevelLinear("MAIN", 1, "", 0, 80.0, 0))
+    Print(PreSonusStudioLive_SetLevelLinear("AUX", 1, "", 0, 70.0, 0))
+End
+```
+
+| Step | Pass? | Notes |
+| ---- | ----- | ----- |
+| `IsConnected()` **True** before controls | | §12 auto-connect or `Connect("10.0.0.14")` |
+| `GetChannelCount("RETURN")` > 0 | | Expect **2** on 32R after handshake |
+| `GetChannelCount("DCA")` > 0 | | Expect **8** on 32R (`filtergroup` wire type) |
+| `GetChannelCount("SUB")` > 0 | | Expect **4** on 32R |
+| Return 1 mute / level / solo / pan move on desk | | UC Surface or hardware control surface |
+| DCA 1 level / solo / pan / color move on desk | | DCA must exist in show; color via Fat Channel |
+| Sub 1 level moves on desk | | |
+| MAIN / AUX 1 fader moves | | MAIN always `ch1` regardless of index arg |
+| `extension.log` shows PV keys `return/…`, `filtergroup/…`, `sub/…` | | No send errors |
+
+**Optional — generic widget binds** (same panel widgets as §7):
+
+```gigperformer
+Initialization
+    SetTimersRunning(true)
+    Print(PreSonusStudioLive_Connect("10.0.0.14"))
+    Print(PreSonusStudioLive_BindLevelWidgetLinear("PSL_Fader", "RETURN", 1, "", 0, 2))
+    Print(PreSonusStudioLive_BindMuteWidget("PSL_Mute", "DCA", 1, "", 0, 2))
+    Print(PreSonusStudioLive_BindSoloWidget("PSL_Solo", "RETURN", 1, 2))
+End
+
+On TimerTick(milliseconds : Double)
+    Print(PreSonusStudioLive_PollWidgetBindings())
+End
+```
+
+Add a Switch named `PSL_Solo` for solo bind tests. `direction` **2** = bidirectional (see §7).
+
+**If count stays 0:** confirm handshake completed (`extension.log` ZB import). Counts scan the flat state cache for `{wireType}/chN/…` keys — they populate after connect, not from a separate query.
+
+**If DCA calls fail silently:** verify the DCA index exists in the current show (1..8 on 32R). Wire type is **`filtergroup`**, GPScript type string is **`"DCA"`**.

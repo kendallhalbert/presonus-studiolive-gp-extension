@@ -806,6 +806,121 @@ std::optional<double> MixerService::getChannelLevelDb(
     return protocol::linearPercentToDb(*linear);
 }
 
+bool MixerService::setChannelSolo(const protocol::ChannelTarget &target, bool soloed)
+{
+    if (!isConnected() || target.mixKind != protocol::MixKind::Main)
+    {
+        return false;
+    }
+
+    sendPvBool(protocol::soloPvKey(target), soloed);
+    return true;
+}
+
+std::optional<bool> MixerService::getChannelSolo(const protocol::ChannelTarget &target) const
+{
+    if (target.mixKind != protocol::MixKind::Main)
+    {
+        return std::nullopt;
+    }
+    return stateCache_.boolKey(protocol::soloPvKey(target));
+}
+
+bool MixerService::setChannelPan(const protocol::ChannelTarget &target, double panPercent)
+{
+    if (!isConnected() || target.mixKind != protocol::MixKind::Main)
+    {
+        return false;
+    }
+
+    sendPvFloat(protocol::panPvKey(target), protocol::panPercentToScalar(panPercent));
+    return true;
+}
+
+std::optional<double> MixerService::getChannelPan(const protocol::ChannelTarget &target) const
+{
+    if (target.mixKind != protocol::MixKind::Main)
+    {
+        return std::nullopt;
+    }
+    if (const auto pan = stateCache_.doubleKey(protocol::panPvKey(target)))
+    {
+        return protocol::panScalarToPercent(*pan);
+    }
+    return std::nullopt;
+}
+
+bool MixerService::setChannelColor(const protocol::ChannelTarget &target,
+                                   const std::string &rgbHex)
+{
+    if (!isConnected() || target.mixKind != protocol::MixKind::Main)
+    {
+        return false;
+    }
+
+    std::uint8_t r = 0;
+    std::uint8_t g = 0;
+    std::uint8_t b = 0;
+    if (!protocol::parseRgbHex(rgbHex, r, g, b))
+    {
+        return false;
+    }
+
+    const auto key = protocol::colorPcKey(target);
+    const auto packet = protocol::createPcPacket(key, r, g, b);
+
+    std::string normalized;
+    normalized.reserve(6);
+    for (char c : rgbHex)
+    {
+        if (c != '#')
+        {
+            normalized.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+        }
+    }
+    stateCache_.setString(key, normalized);
+
+    enqueue([this, packet = std::move(packet)]() {
+        if (connection_)
+        {
+            connection_->sendRaw(packet);
+        }
+    });
+    return true;
+}
+
+std::optional<std::string> MixerService::getChannelColor(
+    const protocol::ChannelTarget &target) const
+{
+    if (target.mixKind != protocol::MixKind::Main)
+    {
+        return std::nullopt;
+    }
+    return stateCache_.stringKey(protocol::colorPcKey(target));
+}
+
+bool MixerService::toggleChannelMute(const protocol::ChannelTarget &target)
+{
+    const auto current = getChannelMute(target);
+    return setChannelMute(target, !(current.value_or(false)));
+}
+
+bool MixerService::toggleChannelSolo(const protocol::ChannelTarget &target)
+{
+    const auto current = getChannelSolo(target);
+    return setChannelSolo(target, !(current.value_or(false)));
+}
+
+int MixerService::getChannelCount(const std::string &type) const
+{
+    const auto wireType = protocol::gpscriptTypeToWireType(type);
+    if (!wireType.has_value())
+    {
+        return 0;
+    }
+    return stateCache_.countChannelsForWireType(*wireType);
+}
+
 bool MixerService::requestFileList(const std::string &path)
 {
     if (!isConnected())

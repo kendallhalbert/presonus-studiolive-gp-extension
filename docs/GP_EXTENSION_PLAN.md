@@ -49,25 +49,27 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-22 | **Phase 4 remainder (code):** auto-connect on gig load (`GPStatus_GigFinishedLoading` + extension init); channel preset list + `RecallChannelStrip`; **65 tests** green. |
 | 2026-05-22 | **§12 auto-connect hardware verified** on 32R @ `10.0.0.14` — reload/reopen gig connects without GPScript; §13 channel presets pending. |
 | 2026-05-22 | **§13 channel presets hardware verified** on 32R @ `10.0.0.14` — `GetChannelPresetCount`/`Name`, `RecallChannelStrip` onto line ch1; recall filters enabled via PV before JM `RestorePreset`; **66 tests** green. |
+| 2026-05-22 | **Phase 2 remainder:** generic solo/pan/color/count, RETURN/DCA/SUB/MAIN/AUX bus keys, generic widget binds; `SetSolo` uses `soloed : Integer`; **§14 verified** on 32R; **72 tests** green. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-22 (Phase 4 complete — §1–§13 verified on 32R)**
+**Last updated: 2026-05-22 (Phase 2 complete — §1–§14 verified on 32R)**
 
 ### TL;DR
 
 Phase 0 **complete** on GP 5 Pro. Phase 1 wire + TCP session layer **done**.
-**Phase 2 mostly done:** LINE shortcuts + generic mute/level (linear + dB) for **main, AUX, and FX sends**,
+**Phase 2 complete:** LINE shortcuts + generic mute/level (linear + dB) for **main, AUX, and FX sends**,
+solo/pan/color/count for **RETURN, DCA, SUB, MAIN, AUX bus**, generic widget binds (`BindLevelWidgetLinear/Db`, `BindMuteWidget`, `BindSoloWidget`),
 `GetCurrentProject`/`Scene`, project/scene list, **JM RestorePreset** scene recall, **fade transitions** (`fadeMs` on `SetLevelLinear` / `SetLevelDb` — **§10 verified**).
 **Phase 3 slice:** LINE widget bindings — **hardware verified** (bidirectional fader + mute Switch),
 song→scene bindings (`BindSongToScene`, `OnSongChanged`) — **§9 verified** (setlist mode).
-**66 tests** green (28 executables). **Hardware verified on 32R @ `10.0.0.14`:**
+**72 tests** green (28 executables). **Hardware verified on 32R @ `10.0.0.14`:**
 connect, LINE controls, project/scene list, scene recall, widget mirroring (§7), **AUX/FX sends (§8)**,
 **song→scene (§9)**, **fade transitions (§10)**, **UDP discovery (§11)**, **auto-connect (§12)**,
-**channel presets (§13)**.
-**Phase 4 complete.** **Next:** Phase 2 remainder (RETURN/DCA/SUB channel types); optional metering (Phase 5).
+**channel presets (§13)**, **RETURN/DCA/SUB (§14)**.
+**Phase 4 complete.** **Next:** optional metering (Phase 5).
 
 ### What's done
 
@@ -88,7 +90,7 @@ connect, LINE controls, project/scene list, scene recall, widget mirroring (§7)
 | **GP-bridge** | `extension/src/bridge/` — Logger, FileLogSink, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore, AppPaths |
 | **Phase 1** | `extension/src/protocol/` + `extension/src/transport/` — parsers, `MixerConnection`, `KeepAlive`, `FdAssembler`, `JmPacket`, `ConnectionHandshake` |
 | **Phase 2 (slice)** | `KvCache`, handshake, LINE mute/level/solo/pan/color GPScript, FD project/scene list + `RecallProjectScene`, connect/log APIs, **AUX/FX send keys** (`ChannelKeys`) |
-| **Hardware smoke test** | **§1–§13 verified 2026-05-22** on 32R @ `10.0.0.14` — see `docs/HARDWARE_SMOKE_TEST.md` |
+| **Hardware smoke test** | **§1–§14 verified 2026-05-22** on 32R @ `10.0.0.14` — see `docs/HARDWARE_SMOKE_TEST.md` |
 | **Phase 3 (slice)** | Widget binding registry + **hardware-verified** bidirectional sync; **hardware-verified** song→scene bindings |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
@@ -224,7 +226,7 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
-| GPScript generic channel API | Agent | Main + AUX/FX **send** routing done; other channel types (RETURN, DCA, etc.) still TODO |
+| GPScript generic channel API | Done | Main + AUX/FX sends + RETURN/DCA/SUB/MAIN/AUX bus — **§14 verified 2026-05-22** |
 | UDP discovery | Agent | Phase 4 — **§11–§13 verified**; fixture `01-discovery-broadcast` still skipped |
 
 ### Phase 0 GP-side smoke test (updated 2026-05-20)
@@ -279,7 +281,9 @@ extension enabled, script editor reopened after reload, and Product XML uses
 17. ~~**User**: fade transition hardware test (§10)~~ **Done 2026-05-22** — 500 ms main fader fade on 32R.
 18. ~~**Agent**: Phase 4 — discovery **§11**, auto-connect **§12**, channel presets **§13** verified on 32R.~~
 19. ~~**User**: hardware §13 channel preset list + recall.~~ **Done 2026-05-22**.
-20. **Agent**: Phase 2 remainder (RETURN/DCA/SUB channel types) per §5.
+20. ~~**Agent**: Phase 2 remainder (RETURN/DCA/SUB channel types) per §5.~~ **Done 2026-05-22** — **72 tests** green; **§14** hardware smoke test ready.
+21. ~~**User**: hardware §14 RETURN/DCA/SUB controls on 32R.~~ **Done 2026-05-22**.
+22. **Optional**: Phase 5 metering (`SubscribeMeters`, `GetMeterLevel`).
 
 ### How to reproduce the verified build from scratch
 
@@ -459,7 +463,7 @@ psl_SetMute   (type : String, channel : Integer, mixType : String, mixNumber : I
 psl_GetMute   (type : String, channel : Integer, mixType : String, mixNumber : Integer)  Returns Boolean
 psl_ToggleMute(type : String, channel : Integer, mixType : String, mixNumber : Integer)
 
-psl_SetSolo   (type : String, channel : Integer, soloed : Boolean)
+psl_SetSolo   (type : String, channel : Integer, soloed : Integer)   // 1 = on, 0 = off
 psl_GetSolo   (type : String, channel : Integer)  Returns Boolean
 psl_ToggleSolo(type : String, channel : Integer)
 ```
@@ -483,7 +487,8 @@ argument on `SetLevelLinear` and `SetLevelDb` — pass **0** for instant moves.
 
 ```
 psl_SetPan  (type : String, channel : Integer, pan : Double)            // 0..100
-psl_SetColor(type : String, channel : Integer, rgbHex : String, alpha : Integer)
+psl_GetPan  (type : String, channel : Integer)                          Returns Double
+psl_SetColor(type : String, channel : Integer, rgbHex : String)         // RRGGBB or #RRGGBB
 psl_GetColor(type : String, channel : Integer)                          Returns String
 ```
 

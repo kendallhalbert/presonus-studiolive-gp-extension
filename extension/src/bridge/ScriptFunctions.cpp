@@ -63,6 +63,74 @@ void persistSuccessfulConnection(ExtensionContext *ctx, mixer::MixerService *svc
     }
 }
 
+struct PoppedChannelSelector
+{
+    char type[32]{};
+    int channel{0};
+    char mixType[32]{};
+    int mixNumber{0};
+};
+
+PoppedChannelSelector popChannelSelector(GPRuntimeEngine *vm)
+{
+    PoppedChannelSelector selector{};
+    selector.mixNumber = GP_VM_PopInteger(vm);
+    GP_VM_PopString(vm, selector.mixType, static_cast<int>(sizeof(selector.mixType)));
+    selector.channel = GP_VM_PopInteger(vm);
+    GP_VM_PopString(vm, selector.type, static_cast<int>(sizeof(selector.type)));
+    return selector;
+}
+
+PoppedChannelSelector popMainChannelSelector(GPRuntimeEngine *vm)
+{
+    PoppedChannelSelector selector{};
+    selector.channel = GP_VM_PopInteger(vm);
+    GP_VM_PopString(vm, selector.type, static_cast<int>(sizeof(selector.type)));
+    return selector;
+}
+
+std::optional<protocol::ChannelTarget> parsePoppedSelector(const PoppedChannelSelector &selector)
+{
+    return protocol::parseChannelTarget(selector.type, selector.channel, selector.mixType,
+                                        selector.mixNumber);
+}
+
+bool bindChannelWidget(GPRuntimeEngine *vm, WidgetBindingKind kind)
+{
+    const int direction = GP_VM_PopInteger(vm);
+    const auto selector = popChannelSelector(vm);
+    char widgetBuffer[128] = {};
+    GP_VM_PopString(vm, widgetBuffer, static_cast<int>(sizeof(widgetBuffer)));
+
+    const auto target = parsePoppedSelector(selector);
+    ExtensionContext *const ctx = context();
+    if (ctx == nullptr || !target.has_value())
+    {
+        return false;
+    }
+
+    auto &bindings = ctx->widgetBindings();
+    GpHost &host = ctx->gpHost();
+    switch (kind)
+    {
+    case WidgetBindingKind::LevelLinear:
+        return bindings.bindLevelLinear(host, widgetBuffer, *target,
+                                        static_cast<WidgetDirection>(direction));
+    case WidgetBindingKind::LevelDb:
+        return bindings.bindLevelDb(host, widgetBuffer, *target,
+                                     static_cast<WidgetDirection>(direction));
+    case WidgetBindingKind::Mute:
+        return bindings.bindMute(host, widgetBuffer, *target,
+                               static_cast<WidgetDirection>(direction));
+    case WidgetBindingKind::Solo:
+        return bindings.bindSolo(host, widgetBuffer, *target,
+                                static_cast<WidgetDirection>(direction));
+    }
+    return false;
+}
+
+} // namespace
+
 extern "C" void psl_Version(GPRuntimeEngine *vm)
 {
     drainIfOnGpThread();
@@ -590,6 +658,172 @@ extern "C" void psl_GetLevelDb(GPRuntimeEngine *vm)
     GP_VM_PushDouble(vm, db.value_or(-84.0));
 }
 
+extern "C" void psl_GetChannelCount(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    char typeBuffer[32] = {};
+    GP_VM_PopString(vm, typeBuffer, static_cast<int>(sizeof(typeBuffer)));
+
+    mixer::MixerService *const svc = mixer();
+    const int count = svc != nullptr ? svc->getChannelCount(typeBuffer) : 0;
+    GP_VM_PushInteger(vm, count);
+}
+
+extern "C" void psl_ToggleMute(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    const auto selector = popChannelSelector(vm);
+    mixer::MixerService *const svc = mixer();
+    const auto target = parsePoppedSelector(selector);
+    const bool ok =
+        svc != nullptr && target.has_value() && svc->toggleChannelMute(*target);
+    GP_VM_PushBoolean(vm, ok);
+}
+
+extern "C" void psl_SetSolo(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    const int soloedFlag = GP_VM_PopInteger(vm);
+    const auto selector = popMainChannelSelector(vm);
+    mixer::MixerService *const svc = mixer();
+    const auto target = parsePoppedSelector(selector);
+    const bool ok = svc != nullptr && target.has_value() &&
+                    svc->setChannelSolo(*target, soloedFlag != 0);
+    GP_VM_PushBoolean(vm, ok);
+}
+
+extern "C" void psl_GetSolo(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    const auto selector = popMainChannelSelector(vm);
+    mixer::MixerService *const svc = mixer();
+    const auto target = parsePoppedSelector(selector);
+    if (svc == nullptr || !target.has_value())
+    {
+        GP_VM_PushBoolean(vm, false);
+        return;
+    }
+
+    const std::optional<bool> soloed = svc->getChannelSolo(*target);
+    GP_VM_PushBoolean(vm, soloed.value_or(false));
+}
+
+extern "C" void psl_ToggleSolo(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    const auto selector = popMainChannelSelector(vm);
+    mixer::MixerService *const svc = mixer();
+    const auto target = parsePoppedSelector(selector);
+    const bool ok =
+        svc != nullptr && target.has_value() && svc->toggleChannelSolo(*target);
+    GP_VM_PushBoolean(vm, ok);
+}
+
+extern "C" void psl_SetPan(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    const double pan = GP_VM_PopDouble(vm);
+    const auto selector = popMainChannelSelector(vm);
+    mixer::MixerService *const svc = mixer();
+    const auto target = parsePoppedSelector(selector);
+    const bool ok = svc != nullptr && target.has_value() &&
+                    svc->setChannelPan(*target, pan);
+    GP_VM_PushBoolean(vm, ok);
+}
+
+extern "C" void psl_GetPan(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    const auto selector = popMainChannelSelector(vm);
+    mixer::MixerService *const svc = mixer();
+    const auto target = parsePoppedSelector(selector);
+    if (svc == nullptr || !target.has_value())
+    {
+        GP_VM_PushDouble(vm, 50.0);
+        return;
+    }
+
+    const std::optional<double> pan = svc->getChannelPan(*target);
+    GP_VM_PushDouble(vm, pan.value_or(50.0));
+}
+
+extern "C" void psl_SetColor(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    char rgbBuffer[32] = {};
+    GP_VM_PopString(vm, rgbBuffer, static_cast<int>(sizeof(rgbBuffer)));
+    const auto selector = popMainChannelSelector(vm);
+    mixer::MixerService *const svc = mixer();
+    const auto target = parsePoppedSelector(selector);
+    const bool ok = svc != nullptr && target.has_value() &&
+                    svc->setChannelColor(*target, rgbBuffer);
+    GP_VM_PushBoolean(vm, ok);
+}
+
+extern "C" void psl_GetColor(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    const auto selector = popMainChannelSelector(vm);
+    mixer::MixerService *const svc = mixer();
+    const auto target = parsePoppedSelector(selector);
+    const std::optional<std::string> color =
+        svc != nullptr && target.has_value() ? svc->getChannelColor(*target)
+                                             : std::nullopt;
+    GP_VM_PushString(vm, color.value_or("").c_str());
+}
+
+extern "C" void psl_BindLevelWidgetLinear(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    const bool ok = bindChannelWidget(vm, WidgetBindingKind::LevelLinear);
+    finishWidgetBind(ok);
+    GP_VM_PushBoolean(vm, ok);
+}
+
+extern "C" void psl_BindLevelWidgetDb(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    const bool ok = bindChannelWidget(vm, WidgetBindingKind::LevelDb);
+    finishWidgetBind(ok);
+    GP_VM_PushBoolean(vm, ok);
+}
+
+extern "C" void psl_BindMuteWidget(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    const bool ok = bindChannelWidget(vm, WidgetBindingKind::Mute);
+    finishWidgetBind(ok);
+    GP_VM_PushBoolean(vm, ok);
+}
+
+extern "C" void psl_BindSoloWidget(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    const int direction = GP_VM_PopInteger(vm);
+    const auto selector = popMainChannelSelector(vm);
+    char widgetBuffer[128] = {};
+    GP_VM_PopString(vm, widgetBuffer, static_cast<int>(sizeof(widgetBuffer)));
+
+    const auto target = parsePoppedSelector(selector);
+    ExtensionContext *const ctx = context();
+    const bool ok = ctx != nullptr && target.has_value() &&
+                    ctx->widgetBindings().bindSolo(
+                        ctx->gpHost(), widgetBuffer, *target,
+                        static_cast<WidgetDirection>(direction));
+    finishWidgetBind(ok);
+    GP_VM_PushBoolean(vm, ok);
+}
+
 extern "C" void psl_BindLineLevelWidgetLinear(GPRuntimeEngine *vm)
 {
     drainIfOnGpThread();
@@ -1023,6 +1257,97 @@ ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
         &psl_GetLevelDb,
     },
     {
+        "GetChannelCount",
+        "type : String",
+        "Returns Integer",
+        "Return channel count for type (LINE, DCA, SUB, etc.) from mixer state cache.",
+        &psl_GetChannelCount,
+    },
+    {
+        "ToggleMute",
+        "type : String, channel : Integer, mixType : String, mixNumber : Integer",
+        "Returns Boolean",
+        "Toggle mute for any channel type / send.",
+        &psl_ToggleMute,
+    },
+    {
+        "SetSolo",
+        "type : String, channel : Integer, soloed : Integer",
+        "Returns Boolean",
+        "Set main-mix solo (soloed=1) for LINE, RETURN, DCA, SUB, etc.",
+        &psl_SetSolo,
+    },
+    {
+        "GetSolo",
+        "type : String, channel : Integer",
+        "Returns Boolean",
+        "Read main-mix solo state.",
+        &psl_GetSolo,
+    },
+    {
+        "ToggleSolo",
+        "type : String, channel : Integer",
+        "Returns Boolean",
+        "Toggle main-mix solo.",
+        &psl_ToggleSolo,
+    },
+    {
+        "SetPan",
+        "type : String, channel : Integer, pan : Double",
+        "Returns Boolean",
+        "Set main-mix pan 0..100 for any channel type.",
+        &psl_SetPan,
+    },
+    {
+        "GetPan",
+        "type : String, channel : Integer",
+        "Returns Double",
+        "Read main-mix pan 0..100.",
+        &psl_GetPan,
+    },
+    {
+        "SetColor",
+        "type : String, channel : Integer, rgbHex : String",
+        "Returns Boolean",
+        "Set channel color (hex RGB) for any main-mix channel type.",
+        &psl_SetColor,
+    },
+    {
+        "GetColor",
+        "type : String, channel : Integer",
+        "Returns String",
+        "Read channel color hex.",
+        &psl_GetColor,
+    },
+    {
+        "BindLevelWidgetLinear",
+        "widgetName : String, type : String, channel : Integer, mixType : String, mixNumber : Integer, direction : Integer",
+        "Returns Boolean",
+        "Bind widget 0..1 to fader 0..100% for any channel type.",
+        &psl_BindLevelWidgetLinear,
+    },
+    {
+        "BindLevelWidgetDb",
+        "widgetName : String, type : String, channel : Integer, mixType : String, mixNumber : Integer, direction : Integer",
+        "Returns Boolean",
+        "Bind widget 0..1 to fader dB for any channel type.",
+        &psl_BindLevelWidgetDb,
+    },
+    {
+        "BindMuteWidget",
+        "widgetName : String, type : String, channel : Integer, mixType : String, mixNumber : Integer, direction : Integer",
+        "Returns Boolean",
+        "Bind widget to mute for any channel type / send.",
+        &psl_BindMuteWidget,
+    },
+    {
+        "BindSoloWidget",
+        "widgetName : String, type : String, channel : Integer, direction : Integer",
+        "Returns Boolean",
+        "Bind widget to main-mix solo for any channel type.",
+        &psl_BindSoloWidget,
+    },
+    {
         "BindLineLevelWidgetLinear",
         "widgetName : String, channel : Integer, direction : Integer",
         "Returns Boolean",
@@ -1107,8 +1432,6 @@ ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
         &psl_LogFilePath,
     },
 };
-
-} // namespace
 
 int scriptFunctionCount()
 {

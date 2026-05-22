@@ -179,6 +179,34 @@ void KvCache::applyMs(const protocol::MsMessage &message)
     }
 }
 
+int KvCache::countChannelsForWireType(std::string_view wireType) const
+{
+    std::lock_guard lock(mutex_);
+    const std::string prefix = std::string(wireType) + "/ch";
+    int maxChannel = 0;
+    for (const auto &[key, _] : values_)
+    {
+        if (key.size() <= prefix.size() || key.compare(0, prefix.size(), prefix) != 0)
+        {
+            continue;
+        }
+
+        std::size_t pos = prefix.size();
+        int channel = 0;
+        while (pos < key.size() && std::isdigit(static_cast<unsigned char>(key[pos])))
+        {
+            channel = channel * 10 + (key[pos] - '0');
+            ++pos;
+        }
+
+        if (pos > prefix.size() && key[pos] == '/')
+        {
+            maxChannel = std::max(maxChannel, channel);
+        }
+    }
+    return maxChannel;
+}
+
 void KvCache::importZlibState(const protocol::ZlibStateNode &node, std::string prefix)
 {
     if (node.value)

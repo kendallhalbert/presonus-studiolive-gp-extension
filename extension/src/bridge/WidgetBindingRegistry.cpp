@@ -14,7 +14,10 @@ namespace
 constexpr auto kEchoSuppressWindow = std::chrono::milliseconds(50);
 constexpr double kWidgetEpsilon = 0.0005;
 
-bool isLineChannelValid(int channel) { return channel >= 1; }
+std::optional<protocol::ChannelTarget> lineTarget(int channel)
+{
+    return protocol::parseChannelTarget("LINE", channel, "", 0);
+}
 
 } // namespace
 
@@ -32,7 +35,13 @@ bool WidgetBindingRegistry::allowsMixerToWidget(WidgetDirection direction) const
 
 bool WidgetBindingRegistry::bind(GpHost &host, const std::string &widget, Binding binding)
 {
-    if (!isLineChannelValid(binding.channel))
+    if (binding.target.channel < 1)
+    {
+        return false;
+    }
+
+    if (binding.kind == WidgetBindingKind::Solo &&
+        binding.target.mixKind != protocol::MixKind::Main)
     {
         return false;
     }
@@ -65,40 +74,73 @@ bool WidgetBindingRegistry::bind(GpHost &host, const std::string &widget, Bindin
     return true;
 }
 
+bool WidgetBindingRegistry::bindLevelLinear(GpHost &host, const std::string &widget,
+                                            const protocol::ChannelTarget &target,
+                                            WidgetDirection direction)
+{
+    return bind(host, widget,
+                Binding{.kind = WidgetBindingKind::LevelLinear,
+                        .direction = direction,
+                        .target = target});
+}
+
+bool WidgetBindingRegistry::bindLevelDb(GpHost &host, const std::string &widget,
+                                        const protocol::ChannelTarget &target,
+                                        WidgetDirection direction)
+{
+    return bind(host, widget,
+                Binding{.kind = WidgetBindingKind::LevelDb,
+                        .direction = direction,
+                        .target = target});
+}
+
+bool WidgetBindingRegistry::bindMute(GpHost &host, const std::string &widget,
+                                     const protocol::ChannelTarget &target,
+                                     WidgetDirection direction)
+{
+    return bind(host, widget,
+                Binding{.kind = WidgetBindingKind::Mute,
+                        .direction = direction,
+                        .target = target});
+}
+
+bool WidgetBindingRegistry::bindSolo(GpHost &host, const std::string &widget,
+                                     const protocol::ChannelTarget &target,
+                                     WidgetDirection direction)
+{
+    return bind(host, widget,
+                Binding{.kind = WidgetBindingKind::Solo,
+                        .direction = direction,
+                        .target = target});
+}
+
 bool WidgetBindingRegistry::bindLineLevelLinear(GpHost &host, const std::string &widget,
                                                 int channel, WidgetDirection direction)
 {
-    return bind(host, widget,
-                Binding{.kind = WidgetBindingKind::LineLevelLinear,
-                        .direction = direction,
-                        .channel = channel});
+    const auto target = lineTarget(channel);
+    return target.has_value() &&
+           bindLevelLinear(host, widget, *target, direction);
 }
 
 bool WidgetBindingRegistry::bindLineLevelDb(GpHost &host, const std::string &widget,
-                                          int channel, WidgetDirection direction)
+                                            int channel, WidgetDirection direction)
 {
-    return bind(host, widget,
-                Binding{.kind = WidgetBindingKind::LineLevelDb,
-                        .direction = direction,
-                        .channel = channel});
+    const auto target = lineTarget(channel);
+    return target.has_value() && bindLevelDb(host, widget, *target, direction);
 }
 
-bool WidgetBindingRegistry::bindLineMute(GpHost &host, const std::string &widget, int channel,
-                                       WidgetDirection direction)
+bool WidgetBindingRegistry::bindLineMute(GpHost &host, const std::string &widget,
+                                         int channel, WidgetDirection direction)
 {
-    return bind(host, widget,
-                Binding{.kind = WidgetBindingKind::LineMute,
-                        .direction = direction,
-                        .channel = channel});
+    const auto target = lineTarget(channel);
+    return target.has_value() && bindMute(host, widget, *target, direction);
 }
 
-bool WidgetBindingRegistry::bindLineSolo(GpHost &host, const std::string &widget, int channel,
-                                         WidgetDirection direction)
+bool WidgetBindingRegistry::bindLineSolo(GpHost &host, const std::string &widget,
+                                         int channel, WidgetDirection direction)
 {
-    return bind(host, widget,
-                Binding{.kind = WidgetBindingKind::LineSolo,
-                        .direction = direction,
-                        .channel = channel});
+    const auto target = lineTarget(channel);
+    return target.has_value() && bindSolo(host, widget, *target, direction);
 }
 
 bool WidgetBindingRegistry::unbind(GpHost &host, const std::string &widget)
@@ -167,26 +209,26 @@ std::optional<double> WidgetBindingRegistry::readMixerWidgetValue(
 {
     switch (binding.kind)
     {
-    case WidgetBindingKind::LineLevelLinear:
-        if (const auto level = mixer.getLineLevelLinear(binding.channel))
+    case WidgetBindingKind::LevelLinear:
+        if (const auto level = mixer.getChannelLevelLinear(binding.target))
         {
             return *level / 100.0;
         }
         return std::nullopt;
-    case WidgetBindingKind::LineLevelDb:
-        if (const auto db = mixer.getLineLevelDb(binding.channel))
+    case WidgetBindingKind::LevelDb:
+        if (const auto db = mixer.getChannelLevelDb(binding.target))
         {
             return (*db + 84.0) / 94.0;
         }
         return std::nullopt;
-    case WidgetBindingKind::LineMute:
-        if (const auto muted = mixer.getLineMute(binding.channel))
+    case WidgetBindingKind::Mute:
+        if (const auto muted = mixer.getChannelMute(binding.target))
         {
             return *muted ? 1.0 : 0.0;
         }
         return std::nullopt;
-    case WidgetBindingKind::LineSolo:
-        if (const auto soloed = mixer.getLineSolo(binding.channel))
+    case WidgetBindingKind::Solo:
+        if (const auto soloed = mixer.getChannelSolo(binding.target))
         {
             return *soloed ? 1.0 : 0.0;
         }
@@ -201,17 +243,17 @@ void WidgetBindingRegistry::applyWidgetToMixer(const Binding &binding,
 {
     switch (binding.kind)
     {
-    case WidgetBindingKind::LineLevelLinear:
-        mixer.setLineLevelLinear(binding.channel, widgetValue * 100.0);
+    case WidgetBindingKind::LevelLinear:
+        mixer.setChannelLevelLinear(binding.target, widgetValue * 100.0);
         break;
-    case WidgetBindingKind::LineLevelDb:
-        mixer.setLineLevelDb(binding.channel, -84.0 + widgetValue * 94.0);
+    case WidgetBindingKind::LevelDb:
+        mixer.setChannelLevelDb(binding.target, -84.0 + widgetValue * 94.0);
         break;
-    case WidgetBindingKind::LineMute:
-        mixer.setLineMute(binding.channel, widgetValue >= 0.5);
+    case WidgetBindingKind::Mute:
+        mixer.setChannelMute(binding.target, widgetValue >= 0.5);
         break;
-    case WidgetBindingKind::LineSolo:
-        mixer.setLineSolo(binding.channel, widgetValue >= 0.5);
+    case WidgetBindingKind::Solo:
+        mixer.setChannelSolo(binding.target, widgetValue >= 0.5);
         break;
     }
 }
@@ -219,7 +261,6 @@ void WidgetBindingRegistry::applyWidgetToMixer(const Binding &binding,
 void WidgetBindingRegistry::onWidgetValueChanged(GpHost &host, mixer::MixerService &mixer,
                                                  const std::string &widget, double newValue)
 {
-    (void)host;
     const auto it = bindings_.find(widget);
     if (it == bindings_.end() || !allowsWidgetToMixer(it->second.direction))
     {
@@ -232,7 +273,6 @@ void WidgetBindingRegistry::onWidgetValueChanged(GpHost &host, mixer::MixerServi
     }
 
     applyWidgetToMixer(it->second, mixer, newValue);
-    lastPushed_[widget] = newValue;
 }
 
 void WidgetBindingRegistry::pollMixerToWidgets(GpHost &host, mixer::MixerService &mixer)
@@ -244,20 +284,20 @@ void WidgetBindingRegistry::pollMixerToWidgets(GpHost &host, mixer::MixerService
             continue;
         }
 
-        const auto widgetValue = readMixerWidgetValue(binding, mixer);
-        if (!widgetValue.has_value())
+        const auto value = readMixerWidgetValue(binding, mixer);
+        if (!value.has_value())
         {
             continue;
         }
 
         const auto last = lastPushed_.find(widget);
         if (last != lastPushed_.end() &&
-            std::abs(last->second - *widgetValue) <= kWidgetEpsilon)
+            std::abs(last->second - *value) <= kWidgetEpsilon)
         {
             continue;
         }
 
-        pushWidgetValue(host, widget, *widgetValue);
+        pushWidgetValue(host, widget, *value);
     }
 }
 

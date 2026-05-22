@@ -3,8 +3,9 @@
 Native Windows extension (`PreSonusStudioLive.dll`) that connects
 [Gig Performer](https://gigperformer.com) to a **PreSonus StudioLive III**
 mixer over UCNet (TCP port 53000). Control the desk from **GPScript** using
-`PreSonusStudioLive_*` functions — connect, LINE channel parameters, project/scene
-lists, and scene recall.
+`PreSonusStudioLive_*` functions — connect, channel parameters (LINE, RETURN, DCA, SUB,
+AUX/FX sends, buses), project/scene/preset lists, scene recall, widget mirroring, and
+UDP discovery with auto-connect.
 
 **Independent third-party project** — not affiliated with, endorsed by, or sponsored
 by PreSonus Audio Electronics, Inc. or Gig Performer.
@@ -14,9 +15,9 @@ This repo is the C++ implementation that supersedes the Node.js
 library. Wire-format behavior is validated against captured fixtures from a
 **StudioLive 32R** (firmware 3.3.0.109659).
 
-> **Status (2026-05-22):** Phases 0–3 **complete**; **Phase 4 discovery verified** (§11 on 32R @ `10.0.0.14`).
-> **63 unit tests** across 28 executables. Full hardware smoke test **§1–§11** in `docs/HARDWARE_SMOKE_TEST.md`.
-> **Next:** auto-connect on gig open, channel preset APIs, Phase 2 channel types.
+> **Status (2026-05-22):** Phases 0–4 **complete**; Phase 2 generic channel types **§14 verified** on 32R @ `10.0.0.14`.
+> **72 unit tests** across 28 executables. Full hardware smoke test **§1–§14** in `docs/HARDWARE_SMOKE_TEST.md`.
+> **Next optional:** Phase 5 metering.
 >
 > Design, roadmap, and phase detail:
 > [`docs/GP_EXTENSION_PLAN.md`](docs/GP_EXTENSION_PLAN.md).
@@ -30,16 +31,17 @@ library. Wire-format behavior is validated against captured fixtures from a
 | Area | GPScript surface | Notes |
 | ---- | ---------------- | ----- |
 | Session | `Connect`, `Disconnect`, `IsConnected`, `GetConnectedHost`, `GetConnectedName` | TCP port 53000; config saved on success |
-| Discovery | `Discover`, `GetDiscoveredHost/Name/Serial`, `DiscoverAndConnect` | UDP listen on **47809**; prefers last serial/host from config |
+| Discovery | `Discover`, `GetDiscoveredHost/Name/Serial`, `DiscoverAndConnect` | UDP listen on **47809**; prefers last serial/host from config; **auto-connect on gig load** |
 | Logging | `SetLogLevel`, `LogFilePath` | File log under `%APPDATA%\PreSonusStudioLive\extension.log` |
 | LINE inputs | Mute, level (0–100%), solo, pan, color | 1-based channel; LINE shortcuts have no `fadeMs` (instant only) |
-| Generic channels | `SetMute`, `GetMute`, `SetLevelLinear`, `GetLevelLinear`, `SetLevelDb`, `GetLevelDb` | `type` + `mixType`/`mixNumber` for main, AUX, FX sends; **`fadeMs` required** on set-level (0 = instant) |
+| Generic channels | `GetChannelCount`, `SetMute`, `GetMute`, `ToggleMute`, `SetLevelLinear/Db`, `GetLevelLinear/Db`, `SetSolo`, `GetSolo`, `ToggleSolo`, `SetPan`, `GetPan`, `SetColor`, `GetColor` | `type` = `"LINE"`, `"RETURN"`, `"DCA"`, `"SUB"`, `"MAIN"`, `"AUX"`, `"FX"`, etc.; **`fadeMs` required** on set-level (0 = instant) |
 | Projects / scenes | `GetProjectCount`, `GetProjectName`, `GetSceneCount`, `GetSceneName`, `RecallProjectScene`, `GetCurrentProject`, `GetCurrentScene` | First list call can block ~5s while FD payloads arrive |
-| Widget bindings | `BindLineLevelWidgetLinear`, `BindLineLevelWidgetDb`, `BindLineMuteWidget`, `BindLineSoloWidget`, `UnbindWidget`, `UnbindAll`, `PollWidgetBindings` | Mute bind needs a **Switch** widget; call `PollWidgetBindings` from `On TimerTick` for desk→widget |
+| Channel presets | `GetChannelPresetCount`, `GetChannelPresetName`, `RecallChannelStrip` | List under `presets/channel/`; recall enables desk filter flags before JM `RestorePreset` |
+| Widget bindings | LINE shortcuts + generic `BindLevelWidgetLinear/Db`, `BindMuteWidget`, `BindSoloWidget`, `UnbindWidget`, `UnbindAll`, `PollWidgetBindings` | Mute bind needs a **Switch** widget; call `PollWidgetBindings` from `On TimerTick` for desk→widget |
 | Song → scene | `BindSongToScene`, `BindSongPartToScene`, `UnbindSong` | Recalls scene on GP setlist change (`OnSongChanged`) |
 | Meta | `Version` | Currently reports `1.0.0-phase0` |
 
-**Planned (not in this build):** auto-connect on gig open, channel preset list APIs, RETURN/DCA/SUB paths, meters — see the plan doc §4.
+**Planned (not in this build):** real-time meters (`SubscribeMeters`, `GetMeterLevel`) — see the plan doc §5.
 
 **Tested host:** Gig Performer **5 Pro** with GP SDK **`beta-sdk-v62`** (SDK version 62).
 GP 5 rejects extensions built against older SDK branches.
@@ -87,16 +89,32 @@ visible to script authors.
 | `PreSonusStudioLive_RecallProjectScene` | `projectFile : String`, `sceneFile : String` | Boolean |
 | `PreSonusStudioLive_GetCurrentProject` | — | String |
 | `PreSonusStudioLive_GetCurrentScene` | — | String |
+| `PreSonusStudioLive_GetChannelPresetCount` | — | Integer |
+| `PreSonusStudioLive_GetChannelPresetName` | `index : Integer` | String |
+| `PreSonusStudioLive_RecallChannelStrip` | `type : String`, `channel : Integer`, `chanFile : String` | Boolean |
+| `PreSonusStudioLive_GetChannelCount` | `type : String` | Integer |
 | `PreSonusStudioLive_SetMute` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer`, `muted : Integer` | Boolean |
 | `PreSonusStudioLive_GetMute` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer` | Boolean |
+| `PreSonusStudioLive_ToggleMute` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer` | Boolean |
 | `PreSonusStudioLive_SetLevelLinear` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer`, `level : Double`, `fadeMs : Integer` | Boolean |
 | `PreSonusStudioLive_GetLevelLinear` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer` | Double |
 | `PreSonusStudioLive_SetLevelDb` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer`, `db : Double`, `fadeMs : Integer` | Boolean |
 | `PreSonusStudioLive_GetLevelDb` | `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer` | Double |
+| `PreSonusStudioLive_SetSolo` | `type : String`, `channel : Integer`, `soloed : Integer` | Boolean |
+| `PreSonusStudioLive_GetSolo` | `type : String`, `channel : Integer` | Boolean |
+| `PreSonusStudioLive_ToggleSolo` | `type : String`, `channel : Integer` | Boolean |
+| `PreSonusStudioLive_SetPan` | `type : String`, `channel : Integer`, `pan : Double` | Boolean |
+| `PreSonusStudioLive_GetPan` | `type : String`, `channel : Integer` | Double |
+| `PreSonusStudioLive_SetColor` | `type : String`, `channel : Integer`, `rgbHex : String` | Boolean |
+| `PreSonusStudioLive_GetColor` | `type : String`, `channel : Integer` | String |
 | `PreSonusStudioLive_BindLineLevelWidgetLinear` | `widgetName : String`, `channel : Integer`, `direction : Integer` | Boolean |
 | `PreSonusStudioLive_BindLineLevelWidgetDb` | `widgetName : String`, `channel : Integer`, `direction : Integer` | Boolean |
 | `PreSonusStudioLive_BindLineMuteWidget` | `widgetName : String`, `channel : Integer`, `direction : Integer` | Boolean |
 | `PreSonusStudioLive_BindLineSoloWidget` | `widgetName : String`, `channel : Integer`, `direction : Integer` | Boolean |
+| `PreSonusStudioLive_BindLevelWidgetLinear` | `widgetName : String`, `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer`, `direction : Integer` | Boolean |
+| `PreSonusStudioLive_BindLevelWidgetDb` | `widgetName : String`, `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer`, `direction : Integer` | Boolean |
+| `PreSonusStudioLive_BindMuteWidget` | `widgetName : String`, `type : String`, `channel : Integer`, `mixType : String`, `mixNumber : Integer`, `direction : Integer` | Boolean |
+| `PreSonusStudioLive_BindSoloWidget` | `widgetName : String`, `type : String`, `channel : Integer`, `direction : Integer` | Boolean |
 | `PreSonusStudioLive_UnbindWidget` | `widgetName : String` | Boolean |
 | `PreSonusStudioLive_UnbindAll` | — | — |
 | `PreSonusStudioLive_PollWidgetBindings` | — | Boolean |
@@ -104,10 +122,12 @@ visible to script authors.
 | `PreSonusStudioLive_BindSongPartToScene` | `songIndex : Integer`, `partIndex : Integer`, `projectFile : String`, `sceneFile : String` | Boolean |
 | `PreSonusStudioLive_UnbindSong` | `songIndex : Integer` | Boolean |
 
-**Generic channel args:** `type` is `"LINE"` (etc.). For **main mix** level/mute, pass
-`mixType=""` and `mixNumber=0`. For **AUX 1** send: `mixType="AUX"`, `mixNumber=1`.
+**Generic channel args:** `type` is `"LINE"`, `"RETURN"`, `"DCA"`, `"SUB"`, `"MAIN"`, `"AUX"`, `"FX"`, etc.
+(DCA maps to wire type `filtergroup`; `"MAIN"` always uses channel 1). For **main mix** level/mute/solo/pan/color,
+pass `mixType=""` and `mixNumber=0`. For **AUX 1** send: `mixType="AUX"`, `mixNumber=1`.
 For **FX A** send: `mixType="FX"`, `mixNumber=1`. **`fadeMs` 0** = instant; **> 0** =
-ease-in-out fade on the IO thread (~10 ms PV steps).
+ease-in-out fade on the IO thread (~10 ms PV steps). **`GetChannelCount`** reads from the
+post-handshake state cache (0 until connected).
 
 **Widget `direction`:** `0` = desk→widget, `1` = widget→desk, `2` = both. For `0` or `2`,
 call `PollWidgetBindings()` from `On TimerTick` (with `SetTimersRunning(true)`).
@@ -210,7 +230,8 @@ holds the session), follow
 [`docs/HARDWARE_SMOKE_TEST.md`](docs/HARDWARE_SMOKE_TEST.md) for a full GPScript
 exercise (connect, mute, optional widget-driven steps, log file location).
 
-Confirmed on **StudioLive 32R** @ `10.0.0.14`: connect and LINE 1 mute toggles the desk.
+Confirmed on **StudioLive 32R** @ `10.0.0.14`: connect, LINE controls, AUX/FX sends, widgets,
+discovery, auto-connect, channel presets, and RETURN/DCA/SUB (§14).
 
 ---
 

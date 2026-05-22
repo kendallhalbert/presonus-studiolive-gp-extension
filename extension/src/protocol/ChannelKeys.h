@@ -23,12 +23,24 @@ struct ChannelTarget
     int mixNumber{0};
 };
 
+/// Map GPScript channel type string to UCNet wire prefix (e.g. `DCA` → `filtergroup`).
+std::optional<std::string> gpscriptTypeToWireType(std::string_view type);
+
 /// Parse GPScript `type` / `mixType` strings into a wire-level target.
 std::optional<ChannelTarget> parseChannelTarget(std::string_view type, int channel,
                                                 std::string_view mixType, int mixNumber);
 
 /// PV key for fader level (main `volume`, send `auxn`, or `FXA`…).
 std::string levelPvKey(const ChannelTarget &target);
+
+/// PV key for main-mix solo (`…/solo`).
+std::string soloPvKey(const ChannelTarget &target);
+
+/// PV key for main-mix pan (`…/pan`).
+std::string panPvKey(const ChannelTarget &target);
+
+/// PC key for channel color (`…/color`).
+std::string colorPcKey(const ChannelTarget &target);
 
 /// PV key for mute (`mute` or inverted `assign_auxn` / `assign_fxn`).
 std::string mutePvKey(const ChannelTarget &target);
