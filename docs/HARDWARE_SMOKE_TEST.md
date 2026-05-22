@@ -413,3 +413,36 @@ End
 | Instant set to 0% (`fadeMs` 0) | | | |
 | 500 ms fade 0% → 75% | | | Smooth fader motion; multiple PV packets in log |
 | dB fade works | | | `SetLevelDb("LINE", 1, "", 0, 0.0, 500)` from current level |
+
+## 11. UDP discovery (Phase 4)
+
+**Status:** **hardware-verified 2026-05-22** on 32R @ `10.0.0.14` (serial `RA3E18090022`).
+
+Mixers broadcast UCNet discovery on UDP port **47809** every ~3 s. The GP PC must be on the **same LAN broadcast domain** as the mixer (routed subnets see TCP to a known IP but not UDP discovery). Close UC Surface if it holds exclusive resources. Allow UDP **47809** through Windows firewall on the GP PC.
+
+On multi-homed PCs you may see duplicate `Discovery:` log lines for the same serial from `127.0.0.1` or secondary interface IPs — dedupe is by serial; `GetDiscoveredHost(1)` returns one entry per mixer.
+
+```gigperformer
+Initialization
+    Print(PreSonusStudioLive_SetLogLevel("debug"))
+    Print(PreSonusStudioLive_Discover(5000))
+    Print(PreSonusStudioLive_GetDiscoveredHost(1))
+    Print(PreSonusStudioLive_GetDiscoveredName(1))
+    Print(PreSonusStudioLive_GetDiscoveredSerial(1))
+    Print(PreSonusStudioLive_DiscoverAndConnect(5000))
+    Print(PreSonusStudioLive_IsConnected())
+    Print(PreSonusStudioLive_GetConnectedHost())
+    Print(PreSonusStudioLive_GetConnectedName())
+End
+```
+
+| Step | Pass? | Notes |
+| ---- | ----- | ----- |
+| `Discover(5000)` > 0 | | At least one mixer on LAN |
+| `GetDiscoveredHost(1)` matches desk IP | | 1-based index |
+| `GetDiscoveredSerial(1)` non-empty | | e.g. `RA3E18090022` on test 32R |
+| `DiscoverAndConnect(5000)` → **True** | | Prefers last serial/host in `%APPDATA%\PreSonusStudioLive\config.json` |
+| `GetConnectedHost()` / `GetConnectedName()` | | Populated after connect |
+| `extension.log` | | Lines `Discovery: …` then `Mixer connected to …` |
+
+**Alternative:** keep using `Connect("10.0.0.14")` — successful connects still update `config.json` (`lastHost`, `lastSerial`, `lastMixerName`).

@@ -56,9 +56,11 @@ add_library(psl_protocol STATIC
   src/protocol/JmPacket.cpp
   src/protocol/ConnectionHandshake.cpp
   src/protocol/MixerConnection.cpp
+  src/protocol/DiscoveryParser.cpp
   src/state/KvCache.cpp
   src/transport/ScriptedTransport.cpp
-  src/transport/WinSockTransport.cpp)
+  src/transport/WinSockTransport.cpp
+  src/transport/DiscoveryListener.cpp)
 
 target_include_directories(psl_protocol
   PUBLIC
@@ -177,3 +179,12 @@ install(TARGETS PreSonusStudioLive
 #  individual translation units once Phase 1 starts producing a static lib).
 # ----------------------------------------------------------------------------
 add_library(PreSonusStudioLive::PreSonusStudioLive ALIAS PreSonusStudioLive)
+
+add_executable(discovery_probe ${CMAKE_SOURCE_DIR}/tools/discovery_probe.cpp)
+target_link_libraries(discovery_probe PRIVATE psl_bridge psl_protocol)
+target_include_directories(discovery_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_features(discovery_probe PRIVATE cxx_std_20)
+if(MSVC)
+  target_compile_definitions(discovery_probe PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+set_target_properties(discovery_probe PROPERTIES FOLDER tools)

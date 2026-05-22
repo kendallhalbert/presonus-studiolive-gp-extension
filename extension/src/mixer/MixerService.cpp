@@ -11,6 +11,7 @@
 #include "protocol/PvEncoder.h"
 #include "protocol/PvParser.h"
 #include "protocol/ValueUtil.h"
+#include "transport/DiscoveryListener.h"
 #include "transport/WinSockTransport.h"
 
 #include <cctype>
@@ -261,6 +262,24 @@ bool MixerService::connect(const std::string &host, std::uint16_t port)
 
         connection_->setKeepAliveEnabled(true);
         connected_ = true;
+        {
+            std::lock_guard lock(connectionInfoMutex_);
+            connectedHost_ = host;
+            if (connectedName_.empty())
+            {
+                if (const auto name = stateCache_.stringKey("global/mixer_name"))
+                {
+                    connectedName_ = *name;
+                }
+            }
+            if (connectedSerial_.empty())
+            {
+                if (const auto serial = stateCache_.stringKey("global/mixer_serial"))
+                {
+                    connectedSerial_ = *serial;
+                }
+            }
+        }
         logger_.info("Mixer connected to " + host);
         ok.store(true);
         done.store(true);
@@ -284,6 +303,12 @@ void MixerService::disconnect()
         connected_ = false;
         stateCache_.clear();
         {
+            std::lock_guard lock(connectionInfoMutex_);
+            connectedHost_.clear();
+            connectedName_.clear();
+            connectedSerial_.clear();
+        }
+        {
             std::lock_guard lock(catalogMutex_);
             projects_.clear();
             scenesByProject_.clear();
@@ -295,6 +320,117 @@ void MixerService::disconnect()
 bool MixerService::isConnected() const
 {
     return connected_.load();
+}
+
+int MixerService::discover(const int timeoutMs)
+{
+    const auto clampedMs = timeoutMs < 0 ? 0 : timeoutMs;
+    const auto devices = transport::listenForDiscovery(std::chrono::milliseconds(clampedMs), logger_);
+    std::lock_guard lock(discoveryMutex_);
+    discovered_ = devices;
+    return static_cast<int>(discovered_.size());
+}
+
+std::string MixerService::getDiscoveredHost(const int index) const
+{
+    std::lock_guard lock(discoveryMutex_);
+    if (index < 1 || static_cast<std::size_t>(index) > discovered_.size())
+    {
+        return {};
+    }
+    return discovered_[static_cast<std::size_t>(index) - 1].host;
+}
+
+std::string MixerService::getDiscoveredName(const int index) const
+{
+    std::lock_guard lock(discoveryMutex_);
+    if (index < 1 || static_cast<std::size_t>(index) > discovered_.size())
+    {
+        return {};
+    }
+    return discovered_[static_cast<std::size_t>(index) - 1].name;
+}
+
+std::string MixerService::getDiscoveredSerial(const int index) const
+{
+    std::lock_guard lock(discoveryMutex_);
+    if (index < 1 || static_cast<std::size_t>(index) > discovered_.size())
+    {
+        return {};
+    }
+    return discovered_[static_cast<std::size_t>(index) - 1].serial;
+}
+
+bool MixerService::discoverAndConnect(const int timeoutMs,
+                                      const std::optional<std::string> &preferredSerial,
+                                      const std::optional<std::string> &preferredHost)
+{
+    if (discover(timeoutMs) <= 0)
+    {
+        return false;
+    }
+
+    std::optional<protocol::DiscoveredMixer> chosen;
+    {
+        std::lock_guard lock(discoveryMutex_);
+        if (preferredSerial.has_value())
+        {
+            for (const auto &device : discovered_)
+            {
+                if (device.serial == *preferredSerial)
+                {
+                    chosen = device;
+                    break;
+                }
+            }
+        }
+        if (!chosen.has_value() && preferredHost.has_value())
+        {
+            for (const auto &device : discovered_)
+            {
+                if (device.host == *preferredHost)
+                {
+                    chosen = device;
+                    break;
+                }
+            }
+        }
+        if (!chosen.has_value() && !discovered_.empty())
+        {
+            chosen = discovered_.front();
+        }
+    }
+
+    if (!chosen.has_value())
+    {
+        return false;
+    }
+
+    {
+        std::lock_guard lock(connectionInfoMutex_);
+        connectedName_ = chosen->name;
+        connectedSerial_ = chosen->serial;
+    }
+
+    return connect(chosen->host, chosen->tcpPort);
+}
+
+std::string MixerService::getConnectedHost() const
+{
+    std::lock_guard lock(connectionInfoMutex_);
+    return connectedHost_;
+}
+
+std::string MixerService::getConnectedName() const
+{
+    std::lock_guard lock(connectionInfoMutex_);
+    return connectedName_;
+}
+
+std::string MixerService::getConnectedSerial() const
+{
+    std::lock_guard lock(connectionInfoMutex_);
+    return connectedSerial_;
 }
 
 void MixerService::sendPvFloat(const std::string &key, float value)

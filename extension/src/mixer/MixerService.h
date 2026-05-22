@@ -2,6 +2,7 @@
 
 #include "bridge/Logger.h"
 #include "protocol/ChannelKeys.h"
+#include "protocol/DiscoveryParser.h"
 #include "protocol/FdParser.h"
 #include "state/KvCache.h"
 
@@ -37,6 +38,18 @@ class MixerService
     bool connect(const std::string &host, std::uint16_t port = 53000);
     void disconnect();
     bool isConnected() const;
+
+    int discover(int timeoutMs);
+    std::string getDiscoveredHost(int index) const;
+    std::string getDiscoveredName(int index) const;
+    std::string getDiscoveredSerial(int index) const;
+    bool discoverAndConnect(int timeoutMs,
+                              const std::optional<std::string> &preferredSerial = std::nullopt,
+                              const std::optional<std::string> &preferredHost = std::nullopt);
+
+    std::string getConnectedHost() const;
+    std::string getConnectedName() const;
+    std::string getConnectedSerial() const;
 
     bool setLineMute(int channel, bool muted);
     std::optional<bool> getLineMute(int channel) const;
@@ -124,6 +137,14 @@ class MixerService
     std::mutex catalogMutex_;
     std::vector<protocol::FdFileEntry> projects_;
     std::unordered_map<std::string, std::vector<protocol::FdFileEntry>> scenesByProject_;
+
+    mutable std::mutex discoveryMutex_;
+    std::vector<protocol::DiscoveredMixer> discovered_;
+
+    mutable std::mutex connectionInfoMutex_;
+    std::string connectedHost_;
+    std::string connectedName_;
+    std::string connectedSerial_;
 
     StateChangeCallback stateChangeCallback_;
 };

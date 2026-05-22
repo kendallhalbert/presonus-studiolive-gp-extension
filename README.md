@@ -14,12 +14,9 @@ This repo is the C++ implementation that supersedes the Node.js
 library. Wire-format behavior is validated against captured fixtures from a
 **StudioLive 32R** (firmware 3.3.0.109659).
 
-> **Status (2026-05-22):** Phases 0–1 **complete**. **Phase 2** mostly done: UCNet handshake,
-> LINE shortcuts, generic mute/level (main + AUX/FX sends, linear + dB), **fade transitions**
-> (`fadeMs`), project/scene list/recall. **Phase 3** slice: LINE widget bindings and song→scene
-> bindings — both hardware verified. **60 unit tests** across 27 executables.
-> **Hardware smoke test complete** on a 32R @ `10.0.0.14` (§1–§10 in `docs/HARDWARE_SMOKE_TEST.md`).
-> **Next:** Phase 4 UDP discovery.
+> **Status (2026-05-22):** Phases 0–3 **complete**; **Phase 4 discovery verified** (§11 on 32R @ `10.0.0.14`).
+> **63 unit tests** across 28 executables. Full hardware smoke test **§1–§11** in `docs/HARDWARE_SMOKE_TEST.md`.
+> **Next:** auto-connect on gig open, channel preset APIs, Phase 2 channel types.
 >
 > Design, roadmap, and phase detail:
 > [`docs/GP_EXTENSION_PLAN.md`](docs/GP_EXTENSION_PLAN.md).
@@ -32,7 +29,8 @@ library. Wire-format behavior is validated against captured fixtures from a
 
 | Area | GPScript surface | Notes |
 | ---- | ---------------- | ----- |
-| Session | `Connect`, `Disconnect`, `IsConnected` | TCP to mixer IP/hostname, port 53000 |
+| Session | `Connect`, `Disconnect`, `IsConnected`, `GetConnectedHost`, `GetConnectedName` | TCP port 53000; config saved on success |
+| Discovery | `Discover`, `GetDiscoveredHost/Name/Serial`, `DiscoverAndConnect` | UDP listen on **47809**; prefers last serial/host from config |
 | Logging | `SetLogLevel`, `LogFilePath` | File log under `%APPDATA%\PreSonusStudioLive\extension.log` |
 | LINE inputs | Mute, level (0–100%), solo, pan, color | 1-based channel; LINE shortcuts have no `fadeMs` (instant only) |
 | Generic channels | `SetMute`, `GetMute`, `SetLevelLinear`, `GetLevelLinear`, `SetLevelDb`, `GetLevelDb` | `type` + `mixType`/`mixNumber` for main, AUX, FX sends; **`fadeMs` required** on set-level (0 = instant) |
@@ -41,7 +39,7 @@ library. Wire-format behavior is validated against captured fixtures from a
 | Song → scene | `BindSongToScene`, `BindSongPartToScene`, `UnbindSong` | Recalls scene on GP setlist change (`OnSongChanged`) |
 | Meta | `Version` | Currently reports `1.0.0-phase0` |
 
-**Planned (not in this build):** UDP discovery, RETURN/DCA/SUB paths, meters, broader mix-type coverage — see the plan doc §4.
+**Planned (not in this build):** auto-connect on gig open, channel preset list APIs, RETURN/DCA/SUB paths, meters — see the plan doc §4.
 
 **Tested host:** Gig Performer **5 Pro** with GP SDK **`beta-sdk-v62`** (SDK version 62).
 GP 5 rejects extensions built against older SDK branches.
@@ -63,6 +61,13 @@ visible to script authors.
 | `PreSonusStudioLive_Connect` | `host : String` | Boolean |
 | `PreSonusStudioLive_Disconnect` | — | — |
 | `PreSonusStudioLive_IsConnected` | — | Boolean |
+| `PreSonusStudioLive_GetConnectedHost` | — | String |
+| `PreSonusStudioLive_GetConnectedName` | — | String |
+| `PreSonusStudioLive_Discover` | `timeoutMs : Integer` | Integer |
+| `PreSonusStudioLive_GetDiscoveredHost` | `index : Integer` | String |
+| `PreSonusStudioLive_GetDiscoveredName` | `index : Integer` | String |
+| `PreSonusStudioLive_GetDiscoveredSerial` | `index : Integer` | String |
+| `PreSonusStudioLive_DiscoverAndConnect` | `timeoutMs : Integer` | Boolean |
 | `PreSonusStudioLive_SetLogLevel` | `level : String` | Boolean |
 | `PreSonusStudioLive_LogFilePath` | — | String |
 | `PreSonusStudioLive_SetLineMute` | `channel : Integer`, `muted : Integer` | Boolean |

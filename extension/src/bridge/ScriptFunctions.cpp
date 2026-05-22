@@ -51,6 +51,35 @@ ExtensionContext *context()
     return ExtensionContext::instance();
 }
 
+void persistSuccessfulConnection(ExtensionContext *ctx, mixer::MixerService *svc)
+{
+    if (ctx == nullptr || svc == nullptr)
+    {
+        return;
+    }
+    ConfigStore *const config = ctx->configStore();
+    if (config == nullptr)
+    {
+        return;
+    }
+    const std::string host = svc->getConnectedHost();
+    if (!host.empty())
+    {
+        config->setLastHost(host);
+    }
+    const std::string serial = svc->getConnectedSerial();
+    if (!serial.empty())
+    {
+        config->setLastSerial(serial);
+    }
+    const std::string name = svc->getConnectedName();
+    if (!name.empty())
+    {
+        config->setLastMixerName(name);
+    }
+    config->save();
+}
+
 extern "C" void psl_Version(GPRuntimeEngine *vm)
 {
     drainIfOnGpThread();
@@ -72,11 +101,7 @@ extern "C" void psl_Connect(GPRuntimeEngine *vm)
     {
         if (ExtensionContext *ctx = ExtensionContext::instance())
         {
-            if (ConfigStore *config = ctx->configStore())
-            {
-                config->setLastHost(hostBuffer);
-                config->save();
-            }
+            persistSuccessfulConnection(ctx, svc);
         }
     }
 
@@ -98,6 +123,88 @@ extern "C" void psl_IsConnected(GPRuntimeEngine *vm)
     drainIfOnGpThread();
     mixer::MixerService *const svc = mixer();
     const bool ok = svc != nullptr && svc->isConnected();
+    GP_VM_PushBoolean(vm, ok);
+}
+
+extern "C" void psl_GetConnectedHost(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    mixer::MixerService *const svc = mixer();
+    const std::string host = svc != nullptr ? svc->getConnectedHost() : std::string{};
+    GP_VM_PushString(vm, host.c_str());
+}
+
+extern "C" void psl_GetConnectedName(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    mixer::MixerService *const svc = mixer();
+    const std::string name = svc != nullptr ? svc->getConnectedName() : std::string{};
+    GP_VM_PushString(vm, name.c_str());
+}
+
+extern "C" void psl_Discover(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    const int timeoutMs = GP_VM_PopInteger(vm);
+    mixer::MixerService *const svc = mixer();
+    const int count = svc != nullptr ? svc->discover(timeoutMs) : 0;
+    GP_VM_PushInteger(vm, count);
+}
+
+extern "C" void psl_GetDiscoveredHost(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    const int index = GP_VM_PopInteger(vm);
+    mixer::MixerService *const svc = mixer();
+    const std::string host = svc != nullptr ? svc->getDiscoveredHost(index) : std::string{};
+    GP_VM_PushString(vm, host.c_str());
+}
+
+extern "C" void psl_GetDiscoveredName(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    const int index = GP_VM_PopInteger(vm);
+    mixer::MixerService *const svc = mixer();
+    const std::string name = svc != nullptr ? svc->getDiscoveredName(index) : std::string{};
+    GP_VM_PushString(vm, name.c_str());
+}
+
+extern "C" void psl_GetDiscoveredSerial(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    const int index = GP_VM_PopInteger(vm);
+    mixer::MixerService *const svc = mixer();
+    const std::string serial = svc != nullptr ? svc->getDiscoveredSerial(index) : std::string{};
+    GP_VM_PushString(vm, serial.c_str());
+}
+
+extern "C" void psl_DiscoverAndConnect(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    const int timeoutMs = GP_VM_PopInteger(vm);
+    mixer::MixerService *const svc = mixer();
+    if (svc == nullptr)
+    {
+        GP_VM_PushBoolean(vm, false);
+        return;
+    }
+
+    std::optional<std::string> preferredSerial;
+    std::optional<std::string> preferredHost;
+    if (ExtensionContext *ctx = context())
+    {
+        if (ConfigStore *config = ctx->configStore())
+        {
+            preferredSerial = config->lastSerial();
+            preferredHost = config->lastHost();
+        }
+    }
+
+    const bool ok = svc->discoverAndConnect(timeoutMs, preferredSerial, preferredHost);
+    if (ok)
+    {
+        persistSuccessfulConnection(context(), svc);
+    }
     GP_VM_PushBoolean(vm, ok);
 }
 
@@ -666,6 +773,55 @@ ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
         "Returns Boolean",
         "True when a mixer TCP session is active.",
         &psl_IsConnected,
+    },
+    {
+        "GetConnectedHost",
+        "",
+        "Returns String",
+        "IP/hostname of the active mixer session (empty if disconnected).",
+        &psl_GetConnectedHost,
+    },
+    {
+        "GetConnectedName",
+        "",
+        "Returns String",
+        "Mixer model/name from discovery or handshake (empty if unknown).",
+        &psl_GetConnectedName,
+    },
+    {
+        "Discover",
+        "timeoutMs : Integer",
+        "Returns Integer",
+        "Listen for UCNet UDP broadcasts on port 47809 for timeoutMs. Returns device count.",
+        &psl_Discover,
+    },
+    {
+        "GetDiscoveredHost",
+        "index : Integer",
+        "Returns String",
+        "1-based IP/hostname from the last Discover() call.",
+        &psl_GetDiscoveredHost,
+    },
+    {
+        "GetDiscoveredName",
+        "index : Integer",
+        "Returns String",
+        "1-based mixer model name from the last Discover() call.",
+        &psl_GetDiscoveredName,
+    },
+    {
+        "GetDiscoveredSerial",
+        "index : Integer",
+        "Returns String",
+        "1-based mixer serial from the last Discover() call.",
+        &psl_GetDiscoveredSerial,
+    },
+    {
+        "DiscoverAndConnect",
+        "timeoutMs : Integer",
+        "Returns Boolean",
+        "Discover mixers, prefer last serial/host from config, then TCP connect (port 53000).",
+        &psl_DiscoverAndConnect,
     },
     {
         "SetLineMute",

@@ -8,6 +8,58 @@
 namespace presonus::studiolive::gpext::bridge
 {
 
+namespace
+{
+
+std::optional<std::string> readJsonStringField(const std::string &text, const std::string &field)
+{
+    const std::string key = '"' + field + '"';
+    const auto pos = text.find(key);
+    if (pos == std::string::npos)
+    {
+        return std::nullopt;
+    }
+    const auto colon = text.find(':', pos + key.size());
+    if (colon == std::string::npos)
+    {
+        return std::nullopt;
+    }
+    const auto valueStart = text.find_first_not_of(" \t\r\n", colon + 1);
+    if (valueStart == std::string::npos)
+    {
+        return std::nullopt;
+    }
+    if (text.compare(valueStart, 4, "null") == 0)
+    {
+        return std::nullopt;
+    }
+    if (text[valueStart] != '"')
+    {
+        return std::nullopt;
+    }
+    const auto quoteEnd = text.find('"', valueStart + 1);
+    if (quoteEnd == std::string::npos)
+    {
+        return std::nullopt;
+    }
+    return text.substr(valueStart + 1, quoteEnd - valueStart - 1);
+}
+
+void writeJsonStringField(std::ostream &out, const char *field, const std::optional<std::string> &value)
+{
+    out << "  \"" << field << "\": ";
+    if (value)
+    {
+        out << '"' << *value << '"';
+    }
+    else
+    {
+        out << "null";
+    }
+}
+
+} // namespace
+
 std::filesystem::path ConfigStore::configFilePath()
 {
     return appDataDirectory() / "config.json";
@@ -16,6 +68,9 @@ std::filesystem::path ConfigStore::configFilePath()
 bool ConfigStore::load()
 {
     lastHost_.reset();
+    lastSerial_.reset();
+    lastMixerName_.reset();
+
     std::ifstream in(configFilePath());
     if (!in)
     {
@@ -24,24 +79,10 @@ bool ConfigStore::load()
     std::ostringstream contents;
     contents << in.rdbuf();
     const std::string text = contents.str();
-    const std::string key = "\"lastHost\"";
-    const auto pos = text.find(key);
-    if (pos == std::string::npos)
-    {
-        return true;
-    }
-    const auto colon = text.find(':', pos + key.size());
-    const auto quoteStart = text.find('"', colon == std::string::npos ? pos : colon);
-    if (quoteStart == std::string::npos)
-    {
-        return true;
-    }
-    const auto quoteEnd = text.find('"', quoteStart + 1);
-    if (quoteEnd == std::string::npos || quoteEnd <= quoteStart + 1)
-    {
-        return true;
-    }
-    lastHost_ = text.substr(quoteStart + 1, quoteEnd - quoteStart - 1);
+
+    lastHost_ = readJsonStringField(text, "lastHost");
+    lastSerial_ = readJsonStringField(text, "lastSerial");
+    lastMixerName_ = readJsonStringField(text, "lastMixerName");
     return true;
 }
 
@@ -55,19 +96,20 @@ bool ConfigStore::save() const
     {
         return false;
     }
-    out << "{\n  \"lastHost\": ";
-    if (lastHost_)
-    {
-        out << '"' << *lastHost_ << '"';
-    }
-    else
-    {
-        out << "null";
-    }
+    out << "{\n";
+    writeJsonStringField(out, "lastHost", lastHost_);
+    out << ",\n";
+    writeJsonStringField(out, "lastSerial", lastSerial_);
+    out << ",\n";
+    writeJsonStringField(out, "lastMixerName", lastMixerName_);
     out << "\n}\n";
     return true;
 }
 
 void ConfigStore::setLastHost(std::string host) { lastHost_ = std::move(host); }
+
+void ConfigStore::setLastSerial(std::string serial) { lastSerial_ = std::move(serial); }
+
+void ConfigStore::setLastMixerName(std::string name) { lastMixerName_ = std::move(name); }
 
 } // namespace presonus::studiolive::gpext::bridge
