@@ -50,12 +50,13 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-22 | **§12 auto-connect hardware verified** on 32R @ `10.0.0.14` — reload/reopen gig connects without GPScript; §13 channel presets pending. |
 | 2026-05-22 | **§13 channel presets hardware verified** on 32R @ `10.0.0.14` — `GetChannelPresetCount`/`Name`, `RecallChannelStrip` onto line ch1; recall filters enabled via PV before JM `RestorePreset`; **66 tests** green. |
 | 2026-05-22 | **Phase 2 remainder:** generic solo/pan/color/count, RETURN/DCA/SUB/MAIN/AUX bus keys, generic widget binds; `SetSolo` uses `soloed : Integer`; **§14 verified** on 32R; **72 tests** green. |
+| 2026-05-22 | **Bookmark refresh.** Pushed `1836b45` — Phase 2 + Phase 4 complete; README API table updated; **§1–§14** hardware-verified on 32R @ `10.0.0.14`. **Next:** optional Phase 5 metering. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-22 (Phase 2 complete — §1–§14 verified on 32R)**
+**Last updated: 2026-05-22 (`main` @ `1836b45` — Phases 0–4 complete, §1–§14 verified on 32R)**
 
 ### TL;DR
 
@@ -69,7 +70,7 @@ song→scene bindings (`BindSongToScene`, `OnSongChanged`) — **§9 verified** 
 connect, LINE controls, project/scene list, scene recall, widget mirroring (§7), **AUX/FX sends (§8)**,
 **song→scene (§9)**, **fade transitions (§10)**, **UDP discovery (§11)**, **auto-connect (§12)**,
 **channel presets (§13)**, **RETURN/DCA/SUB (§14)**.
-**Phase 4 complete.** **Next:** optional metering (Phase 5).
+**Phase 4 complete.** **v1 GPScript surface complete** (see `README.md` API table + §4 below). **Next:** optional Phase 5 metering only.
 
 ### What's done
 
@@ -85,13 +86,15 @@ connect, LINE controls, project/scene list, scene recall, widget mirroring (§7)
 | Visual Studio 2026 Community + "Desktop development with C++" workload installed (CMake 4.2.3 + Ninja bundled) | Local: `C:\Program Files\Microsoft Visual Studio\18\Community` |
 | **Phase 0 scaffold + empty DLL** | `presonus-studiolive-gp-extension` (GoogleTest green; **GP 5 smoke test confirmed 2026-05-20**) |
 | **Phase 0 GP acceptance** | GP 5 Pro — `PreSonusStudioLive_Version()` → `1.0.0-phase0` (Release DLL, SDK v62, `Name="PreSonus StudioLive"`) |
-| **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` — `main` @ `03fe9be`; clones `beta-sdk-v62`, MSVC dev cmd + `ctest -C Debug` |
+| **GitHub remote + CI** | `kendallhalbert/presonus-studiolive-gp-extension` — `main` @ **`1836b45`**; clones `beta-sdk-v62`, MSVC dev cmd + `ctest -C Debug` |
 | **Wire-level fixtures** | `tests/fixtures/` — StudioLive 32R, fw 3.3.0.109659; `04-jm-subscription-reply/` added for handshake tests |
 | **GP-bridge** | `extension/src/bridge/` — Logger, FileLogSink, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore, AppPaths |
 | **Phase 1** | `extension/src/protocol/` + `extension/src/transport/` — parsers, `MixerConnection`, `KeepAlive`, `FdAssembler`, `JmPacket`, `ConnectionHandshake` |
-| **Phase 2 (slice)** | `KvCache`, handshake, LINE mute/level/solo/pan/color GPScript, FD project/scene list + `RecallProjectScene`, connect/log APIs, **AUX/FX send keys** (`ChannelKeys`) |
-| **Hardware smoke test** | **§1–§14 verified 2026-05-22** on 32R @ `10.0.0.14` — see `docs/HARDWARE_SMOKE_TEST.md` |
+| **Phase 2** | Full GPScript channel surface: LINE shortcuts + generic mute/level/solo/pan/color/count for **LINE, RETURN, DCA, SUB, MAIN, AUX, FX**; AUX/FX send keys; fade transitions |
+| **Phase 4** | UDP discovery, auto-connect on gig load, channel preset list + `RecallChannelStrip` |
+| **Hardware smoke test** | **§1–§14 verified 2026-05-22** on 32R @ `10.0.0.14` (serial `RA3E18090022`) — see `docs/HARDWARE_SMOKE_TEST.md` |
 | **Phase 3 (slice)** | Widget binding registry + **hardware-verified** bidirectional sync; **hardware-verified** song→scene bindings |
+| **Public API docs** | `README.md` — full `PreSonusStudioLive_*` function table (updated 2026-05-22) |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
 ### GP smoke test notes (2026-05-20, confirmed)
@@ -191,8 +194,10 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 ```
 Branch:  main (in sync with origin/main)
 Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
-HEAD:    0748981 — fade transitions + fadeMs API + docs
-Tests:   60/60 green (Release build-rel)
+HEAD:    1836b45 — Complete Phase 2 generic channel types; verify §14 on 32R
+Tests:   72/72 green (Release build-rel)
+Desk:    StudioLive 32R @ 10.0.0.14 (serial RA3E18090022), GP 5 Pro, SDK beta-sdk-v62
+Smoke:   §1–§14 hardware-verified (see docs/HARDWARE_SMOKE_TEST.md)
 ```
 
 **GP install DLL** (local Release, SDK v62):
@@ -226,8 +231,9 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
-| GPScript generic channel API | Done | Main + AUX/FX sends + RETURN/DCA/SUB/MAIN/AUX bus — **§14 verified 2026-05-22** |
-| UDP discovery | Agent | Phase 4 — **§11–§13 verified**; fixture `01-discovery-broadcast` still skipped |
+| — | — | **Nothing blocking v1.** All planned Phases 0–4 complete and hardware-verified §1–§14. |
+| Phase 5 metering (optional) | Agent | `SubscribeMeters`, `GetMeterLevel`, optional meter widget bind — not started |
+| Discovery fixture gap | Low | Capture skipped `01-discovery-broadcast`; §11 verified live on LAN instead |
 
 ### Phase 0 GP-side smoke test (updated 2026-05-20)
 
@@ -281,7 +287,7 @@ extension enabled, script editor reopened after reload, and Product XML uses
 17. ~~**User**: fade transition hardware test (§10)~~ **Done 2026-05-22** — 500 ms main fader fade on 32R.
 18. ~~**Agent**: Phase 4 — discovery **§11**, auto-connect **§12**, channel presets **§13** verified on 32R.~~
 19. ~~**User**: hardware §13 channel preset list + recall.~~ **Done 2026-05-22**.
-20. ~~**Agent**: Phase 2 remainder (RETURN/DCA/SUB channel types) per §5.~~ **Done 2026-05-22** — **72 tests** green; **§14** hardware smoke test ready.
+20. ~~**Agent**: Phase 2 remainder (RETURN/DCA/SUB channel types) per §5.~~ **Done 2026-05-22** (`1836b45`) — **72 tests** green; **§14 verified**.
 21. ~~**User**: hardware §14 RETURN/DCA/SUB controls on 32R.~~ **Done 2026-05-22**.
 22. **Optional**: Phase 5 metering (`SubscribeMeters`, `GetMeterLevel`).
 
@@ -296,17 +302,19 @@ cmake --build build --config Debug --parallel
 ctest --test-dir build --build-config Debug --output-on-failure
 ```
 
-Expected: configure ~28 s, build 22 targets clean on `/W4 /permissive-`,
-`2/2` tests pass, DLL at `build\bin\Debug\PreSonusStudioLive.dll`
+Expected: configure ~28 s, build 28 test executables clean on `/W4 /permissive-`,
+**72/72** tests pass, DLL at `build\bin\Debug\PreSonusStudioLive.dll`
 (~880 KB).
 
 ### Useful entry points when resuming
 
+- **`README.md`** — public GPScript API table (authoritative for script authors)
 - §2 — locked-in decisions table (the contract for everything that follows)
-- §4 — full `psl_*` GPScript surface
+- §4 — full `psl_*` GPScript surface (internal names; GP prefix is `PreSonusStudioLive_`)
 - §5 — phased roadmap
 - §6 — testing strategy
 - §7 — fixture inventory and capture sequence
+- `docs/HARDWARE_SMOKE_TEST.md` — on-desk validation runbook (**§1–§14 verified**)
 - `docs/CAPTURE_SESSION_RUNBOOK.md` (JS repo) — what to actually do during the mixer session
 - `presonus-studiolive-gp-extension/README.md` — local-build + smoke-test instructions for the new repo
 
