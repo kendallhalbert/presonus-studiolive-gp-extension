@@ -261,6 +261,7 @@ void WidgetBindingRegistry::applyWidgetToMixer(const Binding &binding,
 void WidgetBindingRegistry::onWidgetValueChanged(GpHost &host, mixer::MixerService &mixer,
                                                  const std::string &widget, double newValue)
 {
+    (void)host;
     const auto it = bindings_.find(widget);
     if (it == bindings_.end() || !allowsWidgetToMixer(it->second.direction))
     {
