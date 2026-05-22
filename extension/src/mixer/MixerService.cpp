@@ -26,6 +26,42 @@ namespace
 {
 
 constexpr const char *kProjectsListPath = "presets/proj";
+constexpr const char *kChannelPresetsListPath = "presets/channel";
+
+constexpr const char *kChannelPresetRecallFilterKeys[] = {
+    "channelfilters/preset_eq",
+    "channelfilters/preset_gate",
+    "channelfilters/preset_comp",
+    "channelfilters/preset_preamp",
+    "channelfilters/preset_polarity",
+    "channelfilters/preset_channel_type",
+    "channelfilters/preset_alt_ab",
+    "channelfilters/preset_aux_fxsend_pan",
+    "channelfilters/preset_select_colors",
+    "channelfilters/preset_48v",
+    "channelfilters/preset_pan",
+    "channelfilters/preset_channel_names",
+    "channelfilters/preset_bus_assigns",
+    "channelfilters/preset_group_assigns",
+    "channelfilters/preset_mutes",
+    "channelfilters/preset_faders",
+};
+
+void sendChannelPresetRecallFilters(protocol::MixerConnection &connection)
+{
+    for (const char *key : kChannelPresetRecallFilterKeys)
+    {
+        connection.sendRaw(protocol::createPvBoolPacket(key, true));
+    }
+}
+
+bool isInterestingJmMessage(std::string_view json)
+{
+    return json.find("RestorePreset") != std::string_view::npos ||
+           json.find("Preset") != std::string_view::npos ||
+           json.find("Error") != std::string_view::npos ||
+           json.find("error") != std::string_view::npos;
+}
 
 } // namespace
 
@@ -125,6 +161,14 @@ void MixerService::onFdListReceived(std::uint16_t requestId, std::vector<std::ui
     const auto files = protocol::parseFdFileList(text);
     if (!files)
     {
+        logger_.warn("FD list parse failed (requestId=" + std::to_string(requestId) +
+                     ", bytes=" + std::to_string(json.size()) + ")");
+        std::lock_guard lock(fdWaitMutex_);
+        if (fdWait_ && fdWait_->requestId == requestId)
+        {
+            fdWait_->entries.clear();
+            fdWait_->done.store(true);
+        }
         return;
     }
 
@@ -139,10 +183,12 @@ void MixerService::onFdListReceived(std::uint16_t requestId, std::vector<std::ui
 }
 
 bool MixerService::fetchFileListBlocking(const std::string &path,
-                                        std::vector<protocol::FdFileEntry> &out)
+                                        std::vector<protocol::FdFileEntry> &out,
+                                        const int maxWaitIterations)
 {
     if (!isConnected())
     {
+        logger_.warn("FR list skipped (not connected): " + path);
         return false;
     }
 
@@ -155,6 +201,7 @@ bool MixerService::fetchFileListBlocking(const std::string &path,
         fdWait_ = std::move(waitState);
     }
 
+    logger_.info("FR list request: " + path + " (id=" + std::to_string(requestId) + ")");
     const auto packet = protocol::createFileListRequestPacket(requestId, path);
     enqueue([this, packet = std::move(packet)]() {
         if (connection_)
@@ -163,7 +210,7 @@ bool MixerService::fetchFileListBlocking(const std::string &path,
         }
     });
 
-    for (int i = 0; i < 500; ++i)
+    for (int i = 0; i < maxWaitIterations; ++i)
     {
         {
             std::lock_guard lock(fdWaitMutex_);
@@ -171,7 +218,14 @@ bool MixerService::fetchFileListBlocking(const std::string &path,
             {
                 out = fdWait_->entries;
                 fdWait_.reset();
-                return !out.empty();
+                if (out.empty())
+                {
+                    logger_.warn("FR list empty: " + path);
+                    return false;
+                }
+                logger_.info("FR list ok: " + path + " (" + std::to_string(out.size()) +
+                             " entries)");
+                return true;
             }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -181,6 +235,7 @@ bool MixerService::fetchFileListBlocking(const std::string &path,
         std::lock_guard lock(fdWaitMutex_);
         fdWait_.reset();
     }
+    logger_.warn("FR list timed out: " + path);
     return false;
 }
 
@@ -209,6 +264,7 @@ bool MixerService::connect(const std::string &host, std::uint16_t port)
             std::lock_guard lock(catalogMutex_);
             projects_.clear();
             scenesByProject_.clear();
+            channelPresets_.clear();
         }
 
         protocol::ConnectionHandshake handshake;
@@ -259,6 +315,13 @@ bool MixerService::connect(const std::string &host, std::uint16_t port)
             done.store(true);
             return;
         }
+
+        connection_->setJsonMessageCallback([this](std::string_view json) {
+            if (isInterestingJmMessage(json))
+            {
+                logger_.info("JM recv: " + std::string(json));
+            }
+        });
 
         connection_->setKeepAliveEnabled(true);
         connected_ = true;
@@ -312,6 +375,7 @@ void MixerService::disconnect()
             std::lock_guard lock(catalogMutex_);
             projects_.clear();
             scenesByProject_.clear();
+            channelPresets_.clear();
         }
         logger_.info("Mixer disconnected");
     });
@@ -406,13 +470,24 @@ bool MixerService::discoverAndConnect(const int timeoutMs,
         return false;
     }
 
+    std::string connectHost = chosen->host;
+    if (preferredHost.has_value() && !preferredHost->empty())
+    {
+        const bool matchedSerial =
+            preferredSerial.has_value() && chosen->serial == *preferredSerial;
+        if (matchedSerial || connectHost == "127.0.0.1")
+        {
+            connectHost = *preferredHost;
+        }
+    }
+
     {
         std::lock_guard lock(connectionInfoMutex_);
         connectedName_ = chosen->name;
         connectedSerial_ = chosen->serial;
     }
 
-    return connect(chosen->host, chosen->tcpPort);
+    return connect(connectHost, chosen->tcpPort);
 }
 
 std::string MixerService::getConnectedHost() const
@@ -878,6 +953,120 @@ bool MixerService::recallProjectScene(const std::string &projectFile,
         {
             connection_->sendRaw(packet);
         }
+    });
+    return true;
+}
+
+int MixerService::getChannelPresetCount()
+{
+    if (!isConnected())
+    {
+        logger_.warn("GetChannelPresetCount: not connected");
+        return 0;
+    }
+
+    {
+        std::lock_guard lock(catalogMutex_);
+        if (!channelPresets_.empty())
+        {
+            return static_cast<int>(channelPresets_.size());
+        }
+    }
+
+    std::vector<protocol::FdFileEntry> fetched;
+    if (!fetchFileListBlocking(kChannelPresetsListPath, fetched))
+    {
+        return 0;
+    }
+
+    fetched = protocol::filterFdChannelPresetFiles(fetched);
+    if (fetched.empty())
+    {
+        logger_.warn("GetChannelPresetCount: no channel presets after filtering");
+        return 0;
+    }
+
+    {
+        std::lock_guard lock(catalogMutex_);
+        channelPresets_ = std::move(fetched);
+        logger_.info("Channel preset count: " + std::to_string(channelPresets_.size()));
+        return static_cast<int>(channelPresets_.size());
+    }
+}
+
+std::string MixerService::getChannelPresetName(const int index)
+{
+    {
+        std::lock_guard lock(catalogMutex_);
+        if (!channelPresets_.empty())
+        {
+            if (index < 1 || static_cast<std::size_t>(index) > channelPresets_.size())
+            {
+                logger_.warn("GetChannelPresetName: index out of range: " +
+                             std::to_string(index));
+                return {};
+            }
+            return channelPresets_[static_cast<std::size_t>(index) - 1].name;
+        }
+    }
+
+    if (getChannelPresetCount() <= 0)
+    {
+        return {};
+    }
+
+    std::lock_guard lock(catalogMutex_);
+    if (index < 1 || static_cast<std::size_t>(index) > channelPresets_.size())
+    {
+        logger_.warn("GetChannelPresetName: index out of range: " + std::to_string(index));
+        return {};
+    }
+    return channelPresets_[static_cast<std::size_t>(index) - 1].name;
+}
+
+bool MixerService::recallChannelStrip(const std::string &type,
+                                      const int channel,
+                                      const std::string &chanFile)
+{
+    if (!isConnected())
+    {
+        logger_.warn("RecallChannelStrip: not connected");
+        return false;
+    }
+
+    if (chanFile.empty())
+    {
+        logger_.warn("RecallChannelStrip: empty preset file name");
+        return false;
+    }
+
+    const auto target = protocol::parseChannelTarget(type, channel, "", 0);
+    if (!target.has_value())
+    {
+        logger_.warn("RecallChannelStrip: invalid channel type/number");
+        return false;
+    }
+
+    if (target->mixKind != protocol::MixKind::Main)
+    {
+        logger_.warn("RecallChannelStrip: main-mix channel target required");
+        return false;
+    }
+
+    const auto presetFile = std::string(kChannelPresetsListPath) + "/" + chanFile;
+    const auto presetTarget = protocol::channelPresetTarget(*target);
+    logger_.info("Recall channel strip JM RestorePreset: " + presetFile + " -> " +
+                 presetTarget);
+    const auto packet = protocol::createRestorePresetPacket(presetFile, presetTarget);
+    enqueue([this, packet = std::move(packet)]() {
+        if (!connection_)
+        {
+            return;
+        }
+
+        // UC Surface recall filters default off for faders/names/etc.; enable all before load.
+        sendChannelPresetRecallFilters(*connection_);
+        connection_->sendRaw(packet);
     });
     return true;
 }

@@ -51,6 +51,17 @@ TEST(JmPacket, RestorePresetSceneMatchesJsApi)
     EXPECT_NE(json->find("presetTargetSlave"), std::string::npos);
 }
 
+TEST(JmPacket, RestorePresetChannelStripIncludesPresetTarget)
+{
+    const auto packet = presonus::studiolive::gpext::protocol::createRestorePresetPacket(
+        "presets/channel/01.Vocal.ch", "line/ch1");
+    const auto json = presonus::studiolive::gpext::protocol::extractJmJson(
+        presonus::studiolive::gpext::protocol::analysePacket(packet)->payload);
+    ASSERT_TRUE(json.has_value());
+    EXPECT_NE(json->find("line/ch1"), std::string::npos);
+    EXPECT_NE(json->find("01.Vocal.ch"), std::string::npos);
+}
+
 TEST(ConnectionHandshake, CompletesOnZbAndSubscriptionReply)
 {
     presonus::studiolive::gpext::protocol::ConnectionHandshake handshake;

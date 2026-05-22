@@ -1,6 +1,7 @@
 #include "bridge/ConfigStore.h"
 
 #include "bridge/AppPaths.h"
+#include "mixer/MixerService.h"
 
 #include <fstream>
 #include <sstream>
@@ -111,5 +112,25 @@ void ConfigStore::setLastHost(std::string host) { lastHost_ = std::move(host); }
 void ConfigStore::setLastSerial(std::string serial) { lastSerial_ = std::move(serial); }
 
 void ConfigStore::setLastMixerName(std::string name) { lastMixerName_ = std::move(name); }
+
+void ConfigStore::updateFromMixer(const mixer::MixerService &svc)
+{
+    const std::string host = svc.getConnectedHost();
+    if (!host.empty())
+    {
+        setLastHost(host);
+    }
+    const std::string serial = svc.getConnectedSerial();
+    if (!serial.empty())
+    {
+        setLastSerial(serial);
+    }
+    const std::string name = svc.getConnectedName();
+    if (!name.empty())
+    {
+        setLastMixerName(name);
+    }
+    save();
+}
 
 } // namespace presonus::studiolive::gpext::bridge

@@ -46,12 +46,15 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-22 | **Hardware smoke test complete** on 32R @ `10.0.0.14` — §9 song→scene (`BindSongToScene` in setlist mode) and §10 fade (`fadeMs` 500 ms main fader) **verified**. |
 | 2026-05-22 | **Phase 4 started:** UDP discovery parser/listener (47809), `Discover`/`DiscoverAndConnect` GPScript, config `lastSerial`/`lastMixerName`; **63 tests** green. §11 hardware test pending. |
 | 2026-05-22 | **§11 discovery hardware verified** on 32R @ `10.0.0.14` — `Discover(5000)` → 1, `DiscoverAndConnect` → desk @ `10.0.0.14`, `GetConnectedName` → `StudioLive 32R`. |
+| 2026-05-22 | **Phase 4 remainder (code):** auto-connect on gig load (`GPStatus_GigFinishedLoading` + extension init); channel preset list + `RecallChannelStrip`; **65 tests** green. |
+| 2026-05-22 | **§12 auto-connect hardware verified** on 32R @ `10.0.0.14` — reload/reopen gig connects without GPScript; §13 channel presets pending. |
+| 2026-05-22 | **§13 channel presets hardware verified** on 32R @ `10.0.0.14` — `GetChannelPresetCount`/`Name`, `RecallChannelStrip` onto line ch1; recall filters enabled via PV before JM `RestorePreset`; **66 tests** green. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-22 (§11 discovery verified; Phase 4 remainder next)**
+**Last updated: 2026-05-22 (Phase 4 complete — §1–§13 verified on 32R)**
 
 ### TL;DR
 
@@ -60,11 +63,11 @@ Phase 0 **complete** on GP 5 Pro. Phase 1 wire + TCP session layer **done**.
 `GetCurrentProject`/`Scene`, project/scene list, **JM RestorePreset** scene recall, **fade transitions** (`fadeMs` on `SetLevelLinear` / `SetLevelDb` — **§10 verified**).
 **Phase 3 slice:** LINE widget bindings — **hardware verified** (bidirectional fader + mute Switch),
 song→scene bindings (`BindSongToScene`, `OnSongChanged`) — **§9 verified** (setlist mode).
-**63 tests** green (28 executables). **Hardware verified on 32R @ `10.0.0.14`:**
+**66 tests** green (28 executables). **Hardware verified on 32R @ `10.0.0.14`:**
 connect, LINE controls, project/scene list, scene recall, widget mirroring (§7), **AUX/FX sends (§8)**,
-**song→scene (§9)**, **fade transitions (§10)**, **UDP discovery (§11)**.
-**Phase 4 in progress:** discovery + config persistence **verified**; auto-connect on `OnOpen` + channel preset APIs remain.
-**Next:** auto-connect on gig open → channel preset list → Phase 2 channel types.
+**song→scene (§9)**, **fade transitions (§10)**, **UDP discovery (§11)**, **auto-connect (§12)**,
+**channel presets (§13)**.
+**Phase 4 complete.** **Next:** Phase 2 remainder (RETURN/DCA/SUB channel types); optional metering (Phase 5).
 
 ### What's done
 
@@ -85,7 +88,7 @@ connect, LINE controls, project/scene list, scene recall, widget mirroring (§7)
 | **GP-bridge** | `extension/src/bridge/` — Logger, FileLogSink, Dispatcher, GpHost, ExtensionContext, ScriptFunctions, ConfigStore, AppPaths |
 | **Phase 1** | `extension/src/protocol/` + `extension/src/transport/` — parsers, `MixerConnection`, `KeepAlive`, `FdAssembler`, `JmPacket`, `ConnectionHandshake` |
 | **Phase 2 (slice)** | `KvCache`, handshake, LINE mute/level/solo/pan/color GPScript, FD project/scene list + `RecallProjectScene`, connect/log APIs, **AUX/FX send keys** (`ChannelKeys`) |
-| **Hardware smoke test** | **§1–§11 verified 2026-05-22** on 32R @ `10.0.0.14` — see `docs/HARDWARE_SMOKE_TEST.md` |
+| **Hardware smoke test** | **§1–§13 verified 2026-05-22** on 32R @ `10.0.0.14` — see `docs/HARDWARE_SMOKE_TEST.md` |
 | **Phase 3 (slice)** | Widget binding registry + **hardware-verified** bidirectional sync; **hardware-verified** song→scene bindings |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
@@ -149,6 +152,8 @@ Mixer: **StudioLive 32R**, fw **3.3.0.109659**. Runbook: `docs/HARDWARE_SMOKE_TE
 | `SetLevelLinear` / `SetLevelDb` (`fadeMs` > 0) | **Verified 2026-05-22** | §10 — ease-in-out sine on IO thread; pass `fadeMs` 0 for instant |
 | `BindSongToScene` | **Verified 2026-05-22** | §9 — GP setlist song change (setlist mode) → JM scene recall |
 | `Discover` / `DiscoverAndConnect` | **Verified 2026-05-22** | §11 — UDP 47809; dedupe by serial; prefers config serial/host |
+| Auto-connect on gig load | **Verified 2026-05-22** | §12 — `GPStatus_GigFinishedLoading` + extension init |
+| `GetChannelPresetCount` / `GetChannelPresetName` / `RecallChannelStrip` | **Verified 2026-05-22** | §13 — JM `RestorePreset` + `presetTarget`; PV `channelfilters/preset_*` before recall |
 | `extension.log` | **Verified** | `%APPDATA%\PreSonusStudioLive\extension.log` |
 
 GPScript notes: functions with return values must be used in `Print(...)` or
@@ -220,7 +225,7 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
 | GPScript generic channel API | Agent | Main + AUX/FX **send** routing done; other channel types (RETURN, DCA, etc.) still TODO |
-| UDP discovery | Agent | Phase 4 — **§11 verified**; fixture `01-discovery-broadcast` still skipped; auto-connect + channel presets remain |
+| UDP discovery | Agent | Phase 4 — **§11–§13 verified**; fixture `01-discovery-broadcast` still skipped |
 
 ### Phase 0 GP-side smoke test (updated 2026-05-20)
 
@@ -272,8 +277,9 @@ extension enabled, script editor reopened after reload, and Product XML uses
 15. ~~**User**: AUX/FX send hardware test (§8)~~ **Done 2026-05-21** — AUX key fix `aux1` lowercase; FX `FXA`.
 16. ~~**User**: song→scene binding hardware test (§9)~~ **Done 2026-05-22** — setlist mode; bind in rackspace `Initialization`.
 17. ~~**User**: fade transition hardware test (§10)~~ **Done 2026-05-22** — 500 ms main fader fade on 32R.
-18. **Agent**: Phase 4 UDP discovery — **§11 verified**; auto-connect on `OnOpen` + channel preset APIs remain.
-19. **Agent**: Phase 2 remainder (other channel types) per §5.
+18. ~~**Agent**: Phase 4 — discovery **§11**, auto-connect **§12**, channel presets **§13** verified on 32R.~~
+19. ~~**User**: hardware §13 channel preset list + recall.~~ **Done 2026-05-22**.
+20. **Agent**: Phase 2 remainder (RETURN/DCA/SUB channel types) per §5.
 
 ### How to reproduce the verified build from scratch
 
@@ -348,7 +354,7 @@ existing TypeScript library is retired after fixture capture is complete.
 | GP SDK reference               | `add_subdirectory(${GP_SDK_DIR})`; default `C:/Users/KenHa/source/repos/gigperformer/gp-sdk`. **For GP 5: checkout `beta-sdk-v62` locally** before building. CI clones `beta-sdk-v62`. |
 | Third-party deps               | CMake `FetchContent` for zlib and GoogleTest. No vcpkg.                                                         |
 | Concurrency model              | Single mixer connection; one IO worker thread + one GP-thread dispatcher queue                                  |
-| Connection lifecycle           | Auto-discover + auto-connect to first found mixer on `OnOpen`; `psl_Connect` / `psl_Disconnect` override        |
+| Connection lifecycle           | Auto-discover + auto-connect on **`GPStatus_GigFinishedLoading`**; `psl_Connect` / `psl_Disconnect` override        |
 | Widget binding direction       | Per-binding `direction` argument: `0 = mixer→widget`, `1 = widget→mixer`, `2 = both`                            |
 | Widget level scale             | Two families: `psl_BindLevelWidgetLinear` (0..1 ↔ 0..100% WYSIWYG) and `psl_BindLevelWidgetDb` (0..1 ↔ -84..+10 dB) |
 | Song ↔ scene auto-recall       | Phase 3 — `psl_BindSongToScene`, in-memory bindings, user re-applies from GPScript on each gig load             |

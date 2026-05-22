@@ -36,4 +36,7 @@ std::string mutePvKey(const ChannelTarget &target);
 /// Send mutes use inverted assign_* semantics on the wire.
 bool sendMuteUsesInvertedAssign(const ChannelTarget &target);
 
+/// JM RestorePreset `presetTarget` for a main-mix channel (e.g. `line/ch1`).
+std::string channelPresetTarget(const ChannelTarget &target);
+
 } // namespace presonus::studiolive::gpext::protocol

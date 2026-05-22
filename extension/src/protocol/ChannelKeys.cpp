@@ -160,4 +160,9 @@ bool sendMuteUsesInvertedAssign(const ChannelTarget &target)
     return target.mixKind == MixKind::Aux || target.mixKind == MixKind::Fx;
 }
 
+std::string channelPresetTarget(const ChannelTarget &target)
+{
+    return channelBaseKey(target);
+}
+
 } // namespace presonus::studiolive::gpext::protocol

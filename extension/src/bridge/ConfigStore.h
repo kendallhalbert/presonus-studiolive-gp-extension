@@ -4,6 +4,11 @@
 #include <optional>
 #include <string>
 
+namespace presonus::studiolive::gpext::mixer
+{
+class MixerService;
+}
+
 namespace presonus::studiolive::gpext::bridge
 {
 
@@ -24,6 +29,9 @@ class ConfigStore
 
     const std::optional<std::string> &lastMixerName() const { return lastMixerName_; }
     void setLastMixerName(std::string name);
+
+    /// Persist connected host/serial/name from an active mixer session.
+    void updateFromMixer(const mixer::MixerService &svc);
 
   private:
     std::optional<std::string> lastHost_;

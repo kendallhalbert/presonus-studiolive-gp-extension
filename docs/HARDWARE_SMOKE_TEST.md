@@ -446,3 +446,74 @@ End
 | `extension.log` | | Lines `Discovery: …` then `Mixer connected to …` |
 
 **Alternative:** keep using `Connect("10.0.0.14")` — successful connects still update `config.json` (`lastHost`, `lastSerial`, `lastMixerName`).
+
+## 12. Auto-connect on gig open (Phase 4)
+
+**Status:** **hardware-verified 2026-05-22** on 32R @ `10.0.0.14` (serial `RA3E18090022`).
+
+> GP’s `OnOpen()` runs once when the **application** finishes starting, not when a gig file opens. Auto-connect runs on **`GPStatus_GigFinishedLoading`**, at extension **`Initialization`** (reload with gig open), and on **`OnOpen`**.
+
+After a prior successful `Connect` or `DiscoverAndConnect`, opening a gig should connect automatically without GPScript. The extension calls `DiscoverAndConnect(5000)` preferring `lastSerial` / `lastHost` from `%APPDATA%\PreSonusStudioLive\config.json`; if discovery fails (routed subnet), it falls back to `Connect(lastHost)`.
+
+On multi-homed PCs discovery may log the same serial from `127.0.0.1` / secondary IPs; when serial matches config, TCP uses saved `lastHost`.
+
+**Setup:** run §11 once (or `Connect("10.0.0.14")`) so `config.json` has saved host/serial. Reload the extension DLL if you just rebuilt.
+
+**Retest paths (either should connect):**
+- **Close and reopen the gig file** — fires `GPStatus_GigFinishedLoading` (requires `registerCallback("OnStatusChanged")`).
+- **Options → Reload Third Party Libraries** with the gig already open — auto-connect runs at end of extension `Initialization` (gig-load event does not fire again).
+
+Switching rackspaces alone does **not** re-trigger auto-connect.
+
+```gigperformer
+Initialization
+    Print(PreSonusStudioLive_SetLogLevel("debug"))
+    Print(PreSonusStudioLive_IsConnected())
+End
+```
+
+| Step | Pass? | Notes |
+| ---- | ----- | ----- |
+| Close gig, reopen (no `Connect` in script) | | Triggers `GPStatus_GigFinishedLoading` |
+| `extension.log` | | `Auto-connect on gig load` → `Auto-connect succeeded` |
+| `IsConnected()` **True** in rackspace `Initialization` | | Runs after gig load; may take up to ~5 s during discovery |
+| Desk reachable on LAN | | Same broadcast domain as §11 for discovery path |
+
+## 13. Channel presets (Phase 4)
+
+**Status:** **hardware-verified 2026-05-22** on 32R @ `10.0.0.14` (serial `RA3E18090022`).
+
+List presets under `presets/channel/` on the desk; recall onto a main-mix channel via JM `RestorePreset` with `presetTarget` (e.g. `line/ch1`). The extension enables all `channelfilters/preset_*` flags via PV before recall (desk defaults skip faders/names). After §12 auto-connect, omit `Connect(...)` if `IsConnected()` is already **True**.
+
+> GP `Print(0)` and `Print("")` show blank in the console — check `extension.log` for `FR list` / `Channel preset count` lines.
+
+```gigperformer
+Var presetName
+Initialization
+    Print(PreSonusStudioLive_SetLogLevel("debug"))
+    Print(PreSonusStudioLive_IsConnected())
+    Print(PreSonusStudioLive_GetChannelPresetCount())
+    presetName = PreSonusStudioLive_GetChannelPresetName(1)
+    Print(presetName)
+    Print(PreSonusStudioLive_RecallChannelStrip("LINE", 1, presetName))
+End
+```
+
+| Step | Pass? | Notes |
+| ---- | ----- | ----- |
+| `IsConnected()` **True** before list | | Use §12 auto-connect or `Connect("10.0.0.14")` |
+| `GetChannelPresetCount()` > 0 | | First call may block up to ~10 s; log `FR list ok: presets/channel` |
+| `GetChannelPresetName(1)` non-empty | | Use returned name for recall — do not hard-code `01.Vocal.ch` |
+| `RecallChannelStrip("LINE", N, presetName)` → **True** | | Log `Recall channel strip JM RestorePreset:`; desk strip updates |
+| Wrong file name → **False** | | Log `RecallChannelStrip: …` |
+| Line ch **N** Fat Channel updates | | Check **EQ/gate/comp/color** — default desk recall filters skip faders/names unless enabled (extension now sets all filters before recall) |
+
+**If count stays 0:** check log for `not connected`, `FR list timed out`, or `FD list parse failed`. Confirm presets exist in UC Surface.
+
+**If `RecallChannelStrip` → True but ch N does not change:**
+
+1. **Close UC Surface** on the GP PC (it can block preset apply).
+2. Confirm the preset loads manually in UC Surface onto the same channel first.
+3. Watch the **Fat Channel** (EQ/gate/comp), not just the fader — desk recall filters may hide fader/name changes.
+4. Check `extension.log` for `JM recv:` after recall (mixer error/reply). Paste that line if still failing.
+5. Rebuild/install latest DLL — recall now sends `channelfilters/preset_*` PV packets before `RestorePreset`.

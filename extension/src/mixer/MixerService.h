@@ -88,6 +88,10 @@ class MixerService
     std::string getSceneName(const std::string &projectFile, int index);
     bool recallProjectScene(const std::string &projectFile, const std::string &sceneFile);
 
+    int getChannelPresetCount();
+    std::string getChannelPresetName(int index);
+    bool recallChannelStrip(const std::string &type, int channel, const std::string &chanFile);
+
     std::string getCurrentProjectFile() const;
     std::string getCurrentSceneFile() const;
 
@@ -114,7 +118,8 @@ class MixerService
     void sendPvFloatImmediate(const std::string &key, float value);
     void sendPvBool(const std::string &key, bool value);
     bool fetchFileListBlocking(const std::string &path,
-                               std::vector<protocol::FdFileEntry> &out);
+                               std::vector<protocol::FdFileEntry> &out,
+                               int maxWaitIterations = 1000);
     void onFdListReceived(std::uint16_t requestId, std::vector<std::uint8_t> json);
     static std::string sceneListPath(const std::string &projectFile);
     static std::string sceneRecallPath(const std::string &projectFile,
@@ -137,6 +142,7 @@ class MixerService
     std::mutex catalogMutex_;
     std::vector<protocol::FdFileEntry> projects_;
     std::unordered_map<std::string, std::vector<protocol::FdFileEntry>> scenesByProject_;
+    std::vector<protocol::FdFileEntry> channelPresets_;
 
     mutable std::mutex discoveryMutex_;
     std::vector<protocol::DiscoveredMixer> discovered_;

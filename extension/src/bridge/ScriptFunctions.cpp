@@ -57,27 +57,10 @@ void persistSuccessfulConnection(ExtensionContext *ctx, mixer::MixerService *svc
     {
         return;
     }
-    ConfigStore *const config = ctx->configStore();
-    if (config == nullptr)
+    if (ConfigStore *config = ctx->configStore())
     {
-        return;
+        config->updateFromMixer(*svc);
     }
-    const std::string host = svc->getConnectedHost();
-    if (!host.empty())
-    {
-        config->setLastHost(host);
-    }
-    const std::string serial = svc->getConnectedSerial();
-    if (!serial.empty())
-    {
-        config->setLastSerial(serial);
-    }
-    const std::string name = svc->getConnectedName();
-    if (!name.empty())
-    {
-        config->setLastMixerName(name);
-    }
-    config->save();
 }
 
 extern "C" void psl_Version(GPRuntimeEngine *vm)
@@ -420,6 +403,40 @@ extern "C" void psl_RecallProjectScene(GPRuntimeEngine *vm)
     mixer::MixerService *const svc = mixer();
     const bool ok = svc != nullptr &&
                     svc->recallProjectScene(projectBuffer, sceneBuffer);
+    GP_VM_PushBoolean(vm, ok);
+}
+
+extern "C" void psl_GetChannelPresetCount(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    mixer::MixerService *const svc = mixer();
+    const int count = svc != nullptr ? svc->getChannelPresetCount() : 0;
+    GP_VM_PushInteger(vm, count);
+}
+
+extern "C" void psl_GetChannelPresetName(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    const int index = GP_VM_PopInteger(vm);
+    mixer::MixerService *const svc = mixer();
+    const std::string name =
+        svc != nullptr ? svc->getChannelPresetName(index) : std::string{};
+    GP_VM_PushString(vm, name.c_str());
+}
+
+extern "C" void psl_RecallChannelStrip(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    char chanFileBuffer[256] = {};
+    GP_VM_PopString(vm, chanFileBuffer, static_cast<int>(sizeof(chanFileBuffer)));
+    const int channel = GP_VM_PopInteger(vm);
+    char typeBuffer[32] = {};
+    GP_VM_PopString(vm, typeBuffer, static_cast<int>(sizeof(typeBuffer)));
+
+    mixer::MixerService *const svc = mixer();
+    const bool ok = svc != nullptr &&
+                    svc->recallChannelStrip(typeBuffer, channel, chanFileBuffer);
     GP_VM_PushBoolean(vm, ok);
 }
 
@@ -927,6 +944,27 @@ ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
         "Returns Boolean",
         "Recall a scene via JM RestorePreset (presetFile under presets/proj/).",
         &psl_RecallProjectScene,
+    },
+    {
+        "GetChannelPresetCount",
+        "",
+        "Returns Integer",
+        "List channel presets stored on the mixer (blocks up to ~5s on first call).",
+        &psl_GetChannelPresetCount,
+    },
+    {
+        "GetChannelPresetName",
+        "index : Integer",
+        "Returns String",
+        "1-based channel preset file name from the cached list.",
+        &psl_GetChannelPresetName,
+    },
+    {
+        "RecallChannelStrip",
+        "type : String, channel : Integer, chanFile : String",
+        "Returns Boolean",
+        "Recall a channel preset onto a main-mix channel via JM RestorePreset.",
+        &psl_RecallChannelStrip,
     },
     {
         "GetCurrentProject",

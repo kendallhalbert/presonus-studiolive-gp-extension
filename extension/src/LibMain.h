@@ -45,6 +45,7 @@ class LibMain final : public gigperformer::sdk::GigPerformerAPI
     void OnClose() override;
 
     void OnRackspaceActivated() override;
+    void OnStatusChanged(GPStatusType status) override;
     void OnWidgetValueChanged(const std::string &widgetName, double newValue) override;
 
     void OnSongChanged(int oldIndex, int newIndex) override;
@@ -68,6 +69,8 @@ class LibMain final : public gigperformer::sdk::GigPerformerAPI
     std::unique_ptr<mixer::MixerService> mixer_;
     std::unique_ptr<bridge::FileLogSink> fileLog_;
     int currentSongIndex_{-1};
+
+    void tryAutoConnect();
 
     LibMain(const LibMain &) = delete;
     LibMain &operator=(const LibMain &) = delete;

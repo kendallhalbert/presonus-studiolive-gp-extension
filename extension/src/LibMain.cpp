@@ -13,6 +13,7 @@
 #include "bridge/ScriptFunctions.h"
 #include "Version.h"
 
+#include <optional>
 #include <string_view>
 
 
@@ -121,12 +122,16 @@ void LibMain::Initialization()
     registerCallback("OnSongChanged");
     registerCallback("OnSongPartChanged");
     registerCallback("OnRackspaceActivated");
+    registerCallback("OnStatusChanged");
 
     config_.load();
 
     logger_.info("PreSonus StudioLive extension initialized");
 
     context_->drainGpTasks();
+
+    // Extension reload leaves the gig open without GPStatus_GigFinishedLoading.
+    tryAutoConnect();
 
 }
 
@@ -140,6 +145,7 @@ void LibMain::OnOpen()
     registerCallback("OnSongChanged");
     registerCallback("OnSongPartChanged");
     registerCallback("OnRackspaceActivated");
+    registerCallback("OnStatusChanged");
 
     if (context_ != nullptr)
 
@@ -147,6 +153,80 @@ void LibMain::OnOpen()
 
         context_->drainGpTasks();
 
+    }
+
+    tryAutoConnect();
+
+}
+
+
+
+void LibMain::OnStatusChanged(const GPStatusType status)
+
+{
+
+    if (status == GPStatus_GigFinishedLoading)
+    {
+        logger_.info("Gig finished loading");
+        tryAutoConnect();
+        return;
+    }
+
+    if (context_ != nullptr)
+    {
+        context_->drainGpTasks();
+    }
+
+}
+
+
+
+void LibMain::tryAutoConnect()
+
+{
+
+    if (mixer_ == nullptr)
+    {
+        logger_.warn("Auto-connect skipped: mixer not initialized");
+        return;
+    }
+
+    if (mixer_->isConnected())
+    {
+        logger_.info("Auto-connect skipped: already connected");
+        return;
+    }
+
+    const std::optional<std::string> preferredSerial = config_.lastSerial();
+    const std::optional<std::string> preferredHost = config_.lastHost();
+
+    if (!preferredSerial.has_value() && !preferredHost.has_value())
+    {
+        logger_.info("Auto-connect skipped: no saved mixer in config");
+        return;
+    }
+
+    logger_.info("Auto-connect on gig load");
+    bool ok = mixer_->discoverAndConnect(5000, preferredSerial, preferredHost);
+    if (!ok && preferredHost.has_value() && !preferredHost->empty())
+    {
+        logger_.info("Discovery failed; trying last host " + *preferredHost);
+        ok = mixer_->connect(*preferredHost);
+    }
+
+    if (ok)
+    {
+        config_.updateFromMixer(*mixer_);
+        logger_.info("Auto-connect succeeded");
+    }
+    else
+    {
+        logger_.warn("Auto-connect failed");
+    }
+
+    if (context_ != nullptr)
+    {
+        context_->drainGpTasks();
     }
 
 }
@@ -161,6 +241,7 @@ void LibMain::OnClose()
     unregisterCallback("OnSongChanged");
     unregisterCallback("OnSongPartChanged");
     unregisterCallback("OnRackspaceActivated");
+    unregisterCallback("OnStatusChanged");
 
     if (mixer_ != nullptr)
     {

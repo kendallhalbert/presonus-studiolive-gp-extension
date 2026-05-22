@@ -59,4 +59,24 @@ TEST(FdParser, SceneListFiltersCnfgAndKeepsScn)
     EXPECT_TRUE(presonus::studiolive::gpext::protocol::isFdSceneFile("01.Live Performance.scn"));
 }
 
+TEST(FdParser, ChannelPresetListFiltersLockAndCnfg)
+{
+    const std::vector<presonus::studiolive::gpext::protocol::FdFileEntry> entries = {
+        {.name = "01.Vocal.ch", .title = "Vocal"},
+        {.name = "52.Siku.Wind.channel", .title = "Siku Wind"},
+        {.name = "West End Girls.cnfg", .title = "West End Girls.cnfg"},
+        {.name = "02._ Empty Location _.ch", .title = "* Empty Location *"},
+        {.name = "show.lock", .title = "show.lock"},
+        {.name = "metadata-only", .title = "Not a preset file"},
+    };
+
+    const auto presets =
+        presonus::studiolive::gpext::protocol::filterFdChannelPresetFiles(entries);
+    ASSERT_EQ(presets.size(), 2u);
+    EXPECT_EQ(presets[0].name, "01.Vocal.ch");
+    EXPECT_EQ(presets[1].name, "52.Siku.Wind.channel");
+    EXPECT_TRUE(presonus::studiolive::gpext::protocol::isFdChannelPresetFile("01.Vocal.ch"));
+    EXPECT_TRUE(presonus::studiolive::gpext::protocol::isFdChannelPresetFile("52.Siku.Wind.channel"));
+}
+
 } // namespace

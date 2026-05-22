@@ -114,4 +114,55 @@ std::vector<FdFileEntry> filterFdSceneFiles(const std::vector<FdFileEntry> &entr
     return filtered;
 }
 
+namespace
+{
+
+bool endsWithIgnoreCase(std::string_view text, std::string_view suffix)
+{
+    if (text.size() < suffix.size())
+    {
+        return false;
+    }
+    const std::string_view tail = text.substr(text.size() - suffix.size());
+    for (std::size_t i = 0; i < suffix.size(); ++i)
+    {
+        if (std::tolower(static_cast<unsigned char>(tail[i])) !=
+            std::tolower(static_cast<unsigned char>(suffix[i])))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace
+
+bool isFdChannelPresetFile(std::string_view name)
+{
+    return endsWithIgnoreCase(name, ".ch") || endsWithIgnoreCase(name, ".channel");
+}
+
+std::vector<FdFileEntry> filterFdChannelPresetFiles(const std::vector<FdFileEntry> &entries)
+{
+    std::vector<FdFileEntry> filtered;
+    filtered.reserve(entries.size());
+    for (const auto &entry : entries)
+    {
+        if (entry.title == "* Empty Location *")
+        {
+            continue;
+        }
+        if (endsWithIgnoreCase(entry.name, ".lock") || endsWithIgnoreCase(entry.name, ".cnfg"))
+        {
+            continue;
+        }
+        if (!isFdChannelPresetFile(entry.name))
+        {
+            continue;
+        }
+        filtered.push_back(entry);
+    }
+    return filtered;
+}
+
 } // namespace presonus::studiolive::gpext::protocol

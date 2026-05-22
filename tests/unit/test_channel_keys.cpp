@@ -35,4 +35,12 @@ TEST(ChannelKeys, LineFxSendLevelKey)
     EXPECT_EQ(presonus::studiolive::gpext::protocol::mutePvKey(*target), "line/ch1/assign_fx1");
 }
 
+TEST(ChannelKeys, ChannelPresetTarget)
+{
+    const auto target = presonus::studiolive::gpext::protocol::parseChannelTarget(
+        "LINE", 3, "", 0);
+    ASSERT_TRUE(target.has_value());
+    EXPECT_EQ(presonus::studiolive::gpext::protocol::channelPresetTarget(*target), "line/ch3");
+}
+
 } // namespace
