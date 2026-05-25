@@ -39,7 +39,7 @@ library. Wire-format behavior is validated against captured fixtures from a
 | Widget bindings | LINE shortcuts + generic `BindLevelWidgetLinear/Db`, `BindMuteWidget`, `BindSoloWidget`, `UnbindWidget`, `UnbindAll`, `PollWidgetBindings` | Mute bind needs a **Switch** widget; call `PollWidgetBindings` from `On TimerTick` for desk→widget |
 | Song → scene | `BindSongToScene`, `BindSongPartToScene`, `UnbindSong` | Recalls scene on GP setlist change (`OnSongChanged`) |
 | Metering | `SubscribeMeters`, `UnsubscribeMeters`, `GetMeterLevel`, `HasMeterData`, `BindMeterWidget` | UDP `levl` on port **52704**; `groupId` 0..4, `channel` 1..32; level 0..100%; firewall inbound **52704**; call `PollWidgetBindings` from `On TimerTick` for meter widgets |
-| Meta | `Version` | Currently reports `1.0.0-phase0` |
+| Meta | `Version` | Reports `1.0.0` |
 
 **Meter groups (`groupId`):** 0 = input, 1 = chain-1 output, 2 = chain-2 output, 3 = chain-3 output, 4 = chain-4 / post-fader level (32 channels each).
 
@@ -224,7 +224,7 @@ Typical Extensions paths:
 - `%USERPROFILE%\Documents\Gig Performer\Extensions\`
 
 In Gig Performer: **Options → Reload Third Party Libraries** (or restart), then enable
-**PreSonus StudioLive** under **Options → Extensions**. Expect version `1.0.0-phase0`.
+**PreSonus StudioLive** under **Options → Extensions**. Expect version `1.0.0`.
 
 ---
 

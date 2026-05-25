@@ -52,7 +52,7 @@ function(psl_add_unit_test name)
     PSL_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
     PSL_VERSION_MINOR=${PROJECT_VERSION_MINOR}
     PSL_VERSION_PATCH=${PROJECT_VERSION_PATCH}
-    PSL_VERSION_TAG="phase0")
+    PSL_VERSION_TAG="")
 
   if(MSVC)
     target_compile_options(test_${name} PRIVATE /W4 /permissive- /utf-8)

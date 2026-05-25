@@ -15,13 +15,12 @@ TEST(Phase0Sanity, GoogleTestBootstraps)
     EXPECT_EQ(1 + 1, 2);
 }
 
-TEST(Phase0Sanity, VersionStringIsNonEmptyAndPhase0)
+TEST(Phase0Sanity, VersionStringIsRelease)
 {
     using presonus::studiolive::gpext::versionString;
     const auto v = versionString();
     EXPECT_FALSE(v.empty()) << "psl_Version() must return a non-empty string";
-    EXPECT_NE(v.find("phase0"), std::string::npos)
-        << "Phase 0 build should advertise itself; got: " << v;
+    EXPECT_EQ(v, "1.0.0") << "Release build should report semver; got: " << v;
 }
 
 } // namespace

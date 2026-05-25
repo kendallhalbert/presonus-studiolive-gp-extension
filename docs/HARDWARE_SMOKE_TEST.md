@@ -217,7 +217,7 @@ The top band recalls a scene — only use it when you are ready for the loaded s
 
 Expect lines similar to:
 
-- `PSL version: 1.0.0-phase0`
+- `PSL version: 1.0.0`
 - `Connect(...) = true` / `IsConnected = true`
 - `SetLineMute(1, mute) = true` (boolean only means the command was **queued/sent**, not that the desk changed)
 

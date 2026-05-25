@@ -105,7 +105,7 @@ target_compile_definitions(psl_bridge PRIVATE
   PSL_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
   PSL_VERSION_MINOR=${PROJECT_VERSION_MINOR}
   PSL_VERSION_PATCH=${PROJECT_VERSION_PATCH}
-  PSL_VERSION_TAG="phase0")
+  PSL_VERSION_TAG="")
 
 if(MSVC)
   target_compile_options(psl_bridge PRIVATE
@@ -166,7 +166,7 @@ target_compile_definitions(PreSonusStudioLive PRIVATE
   PSL_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
   PSL_VERSION_MINOR=${PROJECT_VERSION_MINOR}
   PSL_VERSION_PATCH=${PROJECT_VERSION_PATCH}
-  PSL_VERSION_TAG="phase0")
+  PSL_VERSION_TAG="")
 
 # ----------------------------------------------------------------------------
 #  Install: drop the DLL into the GP Extensions folder.
