@@ -1,0 +1,104 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and publish (e.g. v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: windows / release
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+
+      - name: Setup MSVC toolchain
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Clone Gig Performer SDK (v62)
+        run: git clone --depth 1 --branch beta-sdk-v62 https://github.com/gigperformer/gp-sdk ${{ github.workspace }}/.gp-sdk
+        shell: pwsh
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G "Ninja Multi-Config" `
+            -DGP_SDK_DIR="${{ github.workspace }}/.gp-sdk" `
+            -DPSL_WARNINGS_AS_ERRORS=ON
+        shell: pwsh
+
+      - name: Build (Release)
+        run: cmake --build build --config Release --parallel
+        shell: pwsh
+
+      - name: Test (Release)
+        run: ctest --test-dir build -C Release --output-on-failure
+        shell: pwsh
+
+      - name: Stage release artifacts
+        run: |
+          New-Item -ItemType Directory -Path artifacts -Force | Out-Null
+          Copy-Item build/bin/Release/PreSonusStudioLive.dll artifacts/
+          Get-FileHash artifacts/PreSonusStudioLive.dll -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash)  PreSonusStudioLive.dll" } |
+            Out-File -Encoding utf8 artifacts/SHA256SUMS.txt
+        shell: pwsh
+
+      - name: Resolve release tag
+        id: meta
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            echo "tag=${{ inputs.tag }}" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "tag=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+          }
+        shell: pwsh
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.tag }}
+          files: |
+            artifacts/PreSonusStudioLive.dll
+            artifacts/SHA256SUMS.txt
+          generate_release_notes: true
+          append_body: true
+          body: |
+            ## Install
+
+            1. Download **`PreSonusStudioLive.dll`** below.
+            2. Copy it to `C:\Users\Public\Documents\Gig Performer\Extensions\`.
+            3. In Gig Performer: **Options → Reload Third Party Libraries**, then enable **PreSonus StudioLive** under **Options → Extensions**.
+
+            ## Requirements
+
+            - Windows 10/11 x64
+            - Gig Performer **4.8+** (validated on GP 5 Pro)
+            - PreSonus StudioLive III on the LAN (TCP **53000**; UDP **52704** for metering)
+
+            ## Notes
+
+            - Independent third-party project — not affiliated with PreSonus or Gig Performer.
+            - DLL is **unsigned**; Windows SmartScreen may warn on first load.
+            - Metering requires **inbound UDP 52704** from the mixer subnet.
+            - Hardware validated on **StudioLive 32R** (fw 3.3.0.109659).
+
+            Full validation runbook: [`docs/HARDWARE_SMOKE_TEST.md`](https://github.com/${{ github.repository }}/blob/${{ steps.meta.outputs.tag }}/docs/HARDWARE_SMOKE_TEST.md).
