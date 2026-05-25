@@ -949,7 +949,76 @@ extern "C" void psl_PollWidgetBindings(GPRuntimeEngine *vm)
 {
     drainIfOnGpThread();
     (void)vm;
-    GP_VM_PushBoolean(vm, ExtensionContext::instance() != nullptr);
+}
+
+extern "C" void psl_SubscribeMeters(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    (void)vm;
+
+    mixer::MixerService *const svc = mixer();
+    const bool ok = svc != nullptr && svc->subscribeMeters();
+    GP_VM_PushBoolean(vm, ok);
+}
+
+extern "C" void psl_UnsubscribeMeters(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    (void)vm;
+
+    if (mixer::MixerService *const svc = mixer())
+    {
+        svc->unsubscribeMeters();
+    }
+}
+
+extern "C" void psl_GetMeterLevel(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    const int channel = GP_VM_PopInteger(vm);
+    const int groupId = GP_VM_PopInteger(vm);
+
+    mixer::MixerService *const svc = mixer();
+    const std::optional<double> level =
+        svc != nullptr ? svc->getMeterLevel(groupId, channel) : std::nullopt;
+    GP_VM_PushDouble(vm, level.value_or(0.0));
+}
+
+extern "C" void psl_HasMeterData(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+    (void)vm;
+
+    mixer::MixerService *const svc = mixer();
+    GP_VM_PushBoolean(vm, svc != nullptr && svc->hasMeterData());
+}
+
+extern "C" void psl_BindMeterWidget(GPRuntimeEngine *vm)
+{
+    drainIfOnGpThread();
+
+    const int direction = GP_VM_PopInteger(vm);
+    const int channel = GP_VM_PopInteger(vm);
+    const int groupId = GP_VM_PopInteger(vm);
+    char widgetBuffer[128] = {};
+    GP_VM_PopString(vm, widgetBuffer, static_cast<int>(sizeof(widgetBuffer)));
+
+    ExtensionContext *const ctx = context();
+    const bool ok = ctx != nullptr &&
+                    ctx->widgetBindings().bindMeter(
+                        ctx->gpHost(), widgetBuffer, groupId, channel,
+                        static_cast<WidgetDirection>(direction));
+    if (!ok && ctx != nullptr)
+    {
+        ctx->logger().warn(std::string("BindMeterWidget failed for widget '") + widgetBuffer +
+                           "' groupId=" + std::to_string(groupId) +
+                           " channel=" + std::to_string(channel) +
+                           " direction=" + std::to_string(direction) +
+                           " (need direction 0 or 2, widget on panel, channel 1..32)");
+    }
+    finishWidgetBind(ok);
+    GP_VM_PushBoolean(vm, ok);
 }
 
 extern "C" void psl_BindSongToScene(GPRuntimeEngine *vm)
@@ -1392,9 +1461,44 @@ ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
     {
         "PollWidgetBindings",
         "",
-        "Returns Boolean",
+        "",
         "Drain queued mixer-to-widget updates on the GP thread. Call from On TimerTick when direction includes mixer-to-widget.",
         &psl_PollWidgetBindings,
+    },
+    {
+        "SubscribeMeters",
+        "",
+        "Returns Boolean",
+        "Open UDP port 52704 and notify the mixer (UM Hello). Requires Connect first.",
+        &psl_SubscribeMeters,
+    },
+    {
+        "UnsubscribeMeters",
+        "",
+        "",
+        "Stop the UDP meter listener.",
+        &psl_UnsubscribeMeters,
+    },
+    {
+        "GetMeterLevel",
+        "groupId : Integer, channel : Integer",
+        "Returns Double",
+        "Cached meter level 0..100 for groupId 0..4 and channel 1..32 (non-blocking).",
+        &psl_GetMeterLevel,
+    },
+    {
+        "HasMeterData",
+        "",
+        "Returns Boolean",
+        "True after at least one UCNet levl UDP frame has been received.",
+        &psl_HasMeterData,
+    },
+    {
+        "BindMeterWidget",
+        "widgetName : String, groupId : Integer, channel : Integer, direction : Integer",
+        "Returns Boolean",
+        "Mirror UCNet meter level to a GP widget (direction 0 or 2 only). Call PollWidgetBindings from On TimerTick.",
+        &psl_BindMeterWidget,
     },
     {
         "BindSongToScene",

@@ -15,9 +15,8 @@ This repo is the C++ implementation that supersedes the Node.js
 library. Wire-format behavior is validated against captured fixtures from a
 **StudioLive 32R** (firmware 3.3.0.109659).
 
-> **Status (2026-05-22):** Phases 0–4 **complete**; Phase 2 generic channel types **§14 verified** on 32R @ `10.0.0.14`.
-> **72 unit tests** across 28 executables. Full hardware smoke test **§1–§14** in `docs/HARDWARE_SMOKE_TEST.md`.
-> **Next optional:** Phase 5 metering.
+> **Status (2026-05-25):** Phases 0–5 **complete**; **§1–§15 hardware-verified** on 32R @ `10.0.0.14`.
+> **78 unit tests** across 30 executables.
 >
 > Design, roadmap, and phase detail:
 > [`docs/GP_EXTENSION_PLAN.md`](docs/GP_EXTENSION_PLAN.md).
@@ -39,9 +38,10 @@ library. Wire-format behavior is validated against captured fixtures from a
 | Channel presets | `GetChannelPresetCount`, `GetChannelPresetName`, `RecallChannelStrip` | List under `presets/channel/`; recall enables desk filter flags before JM `RestorePreset` |
 | Widget bindings | LINE shortcuts + generic `BindLevelWidgetLinear/Db`, `BindMuteWidget`, `BindSoloWidget`, `UnbindWidget`, `UnbindAll`, `PollWidgetBindings` | Mute bind needs a **Switch** widget; call `PollWidgetBindings` from `On TimerTick` for desk→widget |
 | Song → scene | `BindSongToScene`, `BindSongPartToScene`, `UnbindSong` | Recalls scene on GP setlist change (`OnSongChanged`) |
+| Metering | `SubscribeMeters`, `UnsubscribeMeters`, `GetMeterLevel`, `HasMeterData`, `BindMeterWidget` | UDP `levl` on port **52704**; `groupId` 0..4, `channel` 1..32; level 0..100%; firewall inbound **52704**; call `PollWidgetBindings` from `On TimerTick` for meter widgets |
 | Meta | `Version` | Currently reports `1.0.0-phase0` |
 
-**Planned (not in this build):** real-time meters (`SubscribeMeters`, `GetMeterLevel`) — see the plan doc §5.
+**Meter groups (`groupId`):** 0 = input, 1 = chain-1 output, 2 = chain-2 output, 3 = chain-3 output, 4 = chain-4 / post-fader level (32 channels each).
 
 **Tested host:** Gig Performer **5 Pro** with GP SDK **`beta-sdk-v62`** (SDK version 62).
 GP 5 rejects extensions built against older SDK branches.
@@ -117,7 +117,12 @@ visible to script authors.
 | `PreSonusStudioLive_BindSoloWidget` | `widgetName : String`, `type : String`, `channel : Integer`, `direction : Integer` | Boolean |
 | `PreSonusStudioLive_UnbindWidget` | `widgetName : String` | Boolean |
 | `PreSonusStudioLive_UnbindAll` | — | — |
-| `PreSonusStudioLive_PollWidgetBindings` | — | Boolean |
+| `PreSonusStudioLive_PollWidgetBindings` | — | — (procedure; call from `On TimerTick`) |
+| `PreSonusStudioLive_SubscribeMeters` | — | Boolean |
+| `PreSonusStudioLive_UnsubscribeMeters` | — | Boolean |
+| `PreSonusStudioLive_GetMeterLevel` | `groupId : Integer`, `channel : Integer` | Double |
+| `PreSonusStudioLive_HasMeterData` | — | Boolean |
+| `PreSonusStudioLive_BindMeterWidget` | `widgetName : String`, `groupId : Integer`, `channel : Integer`, `direction : Integer` | Boolean |
 | `PreSonusStudioLive_BindSongToScene` | `songIndex : Integer`, `projectFile : String`, `sceneFile : String` | Boolean |
 | `PreSonusStudioLive_BindSongPartToScene` | `songIndex : Integer`, `partIndex : Integer`, `projectFile : String`, `sceneFile : String` | Boolean |
 | `PreSonusStudioLive_UnbindSong` | `songIndex : Integer` | Boolean |
@@ -133,7 +138,7 @@ post-handshake state cache (0 until connected).
 call `PollWidgetBindings()` from `On TimerTick` (with `SetTimersRunning(true)`).
 
 GPScript requires functions that return a value to appear inside `Print(...)` or an
-assignment. `Disconnect()` and `UnbindAll()` may be called as standalone statements.
+assignment. `Disconnect()`, `UnbindAll()`, and `PollWidgetBindings()` may be called as standalone statements.
 
 Minimal rackspace check:
 

@@ -1,6 +1,7 @@
 #include "bridge/WidgetBindingRegistry.h"
 
 #include "mixer/MixerService.h"
+#include "protocol/LevlParser.h"
 #include "protocol/ValueUtil.h"
 
 #include <cmath>
@@ -35,7 +36,17 @@ bool WidgetBindingRegistry::allowsMixerToWidget(WidgetDirection direction) const
 
 bool WidgetBindingRegistry::bind(GpHost &host, const std::string &widget, Binding binding)
 {
-    if (binding.target.channel < 1)
+    if (binding.kind == WidgetBindingKind::Meter)
+    {
+        if (binding.meterChannel < 1 || binding.meterGroupId < 0 ||
+            binding.meterGroupId >= protocol::kLevlGroupCount ||
+            !allowsMixerToWidget(binding.direction) ||
+            allowsWidgetToMixer(binding.direction))
+        {
+            return false;
+        }
+    }
+    else if (binding.target.channel < 1)
     {
         return false;
     }
@@ -112,6 +123,17 @@ bool WidgetBindingRegistry::bindSolo(GpHost &host, const std::string &widget,
                 Binding{.kind = WidgetBindingKind::Solo,
                         .direction = direction,
                         .target = target});
+}
+
+bool WidgetBindingRegistry::bindMeter(GpHost &host, const std::string &widget,
+                                      const int groupId, const int channel,
+                                      WidgetDirection direction)
+{
+    return bind(host, widget,
+                Binding{.kind = WidgetBindingKind::Meter,
+                        .direction = direction,
+                        .meterGroupId = groupId,
+                        .meterChannel = channel});
 }
 
 bool WidgetBindingRegistry::bindLineLevelLinear(GpHost &host, const std::string &widget,
@@ -233,6 +255,12 @@ std::optional<double> WidgetBindingRegistry::readMixerWidgetValue(
             return *soloed ? 1.0 : 0.0;
         }
         return std::nullopt;
+    case WidgetBindingKind::Meter:
+        if (const auto level = mixer.getMeterLevel(binding.meterGroupId, binding.meterChannel))
+        {
+            return *level / 100.0;
+        }
+        return std::nullopt;
     }
     return std::nullopt;
 }
@@ -254,6 +282,8 @@ void WidgetBindingRegistry::applyWidgetToMixer(const Binding &binding,
         break;
     case WidgetBindingKind::Solo:
         mixer.setChannelSolo(binding.target, widgetValue >= 0.5);
+        break;
+    case WidgetBindingKind::Meter:
         break;
     }
 }

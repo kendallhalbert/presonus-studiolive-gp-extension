@@ -5,6 +5,7 @@
 #include "protocol/DiscoveryParser.h"
 #include "protocol/FdParser.h"
 #include "state/KvCache.h"
+#include "state/MeterCache.h"
 
 #include <atomic>
 #include <cstdint>
@@ -20,6 +21,11 @@
 namespace presonus::studiolive::gpext::protocol
 {
 class MixerConnection;
+}
+
+namespace presonus::studiolive::gpext::transport
+{
+class MeterListener;
 }
 
 namespace presonus::studiolive::gpext::mixer
@@ -109,6 +115,12 @@ class MixerService
     std::string getCurrentProjectFile() const;
     std::string getCurrentSceneFile() const;
 
+    bool subscribeMeters(std::uint16_t port = 52704);
+    void unsubscribeMeters();
+    bool isMeterSubscribed() const;
+    bool hasMeterData() const;
+    std::optional<double> getMeterLevel(int groupId, int channel) const;
+
     /// Next `FR` / FD list request id (wraps at 16 bits).
     std::uint16_t allocateRequestId();
 
@@ -131,6 +143,7 @@ class MixerService
     void sendPvFloat(const std::string &key, float value);
     void sendPvFloatImmediate(const std::string &key, float value);
     void sendPvBool(const std::string &key, bool value);
+    void stopMeterListener();
     bool fetchFileListBlocking(const std::string &path,
                                std::vector<protocol::FdFileEntry> &out,
                                int maxWaitIterations = 1000);
@@ -142,6 +155,10 @@ class MixerService
 
     bridge::Logger &logger_;
     state::KvCache stateCache_;
+    state::MeterCache meterCache_;
+    std::unique_ptr<transport::MeterListener> meterListener_;
+    std::atomic<bool> metersSubscribed_{false};
+    std::uint16_t meterPort_{52704};
     std::unique_ptr<protocol::MixerConnection> connection_;
     std::thread ioThread_;
     std::mutex mutex_;

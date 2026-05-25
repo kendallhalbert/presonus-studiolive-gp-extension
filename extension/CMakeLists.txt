@@ -42,6 +42,7 @@ add_library(psl_protocol STATIC
   src/protocol/PcParser.cpp
   src/protocol/PsParser.cpp
   src/protocol/MsParser.cpp
+  src/protocol/LevlParser.cpp
   src/protocol/DataClient.cpp
   src/protocol/PacketParser.cpp
   src/protocol/ZlibInflate.cpp
@@ -58,9 +59,11 @@ add_library(psl_protocol STATIC
   src/protocol/MixerConnection.cpp
   src/protocol/DiscoveryParser.cpp
   src/state/KvCache.cpp
+  src/state/MeterCache.cpp
   src/transport/ScriptedTransport.cpp
   src/transport/WinSockTransport.cpp
-  src/transport/DiscoveryListener.cpp)
+  src/transport/DiscoveryListener.cpp
+  src/transport/MeterListener.cpp)
 
 target_include_directories(psl_protocol
   PUBLIC

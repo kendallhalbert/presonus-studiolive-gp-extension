@@ -116,6 +116,13 @@ std::vector<std::uint8_t> createUnsubscribePacket()
     return createPacket("JM", wrapJsonPayload(kUnsubscribeJson));
 }
 
+std::vector<std::uint8_t> createHelloPacket(const std::uint16_t udpPort)
+{
+    std::vector<std::uint8_t> payload;
+    writeUInt16Le(payload, udpPort);
+    return createPacket("UM", payload, 0x00, kCByteB);
+}
+
 std::vector<std::uint8_t> createRestorePresetJmPayload(const std::string &presetFile,
                                                        const std::string &presetTarget)
 {

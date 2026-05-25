@@ -317,7 +317,7 @@ Initialization
 End
 
 On TimerTick(milliseconds : Double)
-    Print(PreSonusStudioLive_PollWidgetBindings())
+    PreSonusStudioLive_PollWidgetBindings()
 End
 ```
 
@@ -597,7 +597,7 @@ Initialization
 End
 
 On TimerTick(milliseconds : Double)
-    Print(PreSonusStudioLive_PollWidgetBindings())
+    PreSonusStudioLive_PollWidgetBindings()
 End
 ```
 
@@ -606,3 +606,61 @@ Add a Switch named `PSL_Solo` for solo bind tests. `direction` **2** = bidirecti
 **If count stays 0:** confirm handshake completed (`extension.log` ZB import). Counts scan the flat state cache for `{wireType}/chN/…` keys — they populate after connect, not from a separate query.
 
 **If DCA calls fail silently:** verify the DCA index exists in the current show (1..8 on 32R). Wire type is **`filtergroup`**, GPScript type string is **`"DCA"`**.
+
+## 15. Metering (Phase 5)
+
+**Status:** **hardware-verified 2026-05-25** on 32R @ `10.0.0.14` (serial `RA3E18090022`).
+
+Requires audio on the desk (talk into a mic or play backing) so meters move.
+Allow **inbound UDP 52704** in Windows Firewall from the mixer subnet. Close **UC Surface** if it holds the meter port.
+
+32R sends **variable-size** `levl` frames (~**217–567 bytes**), not the 1041-byte shape from the JS reference — the extension accepts both.
+
+```gigperformer
+Initialization
+    SetTimersRunning(true)
+    Print(PreSonusStudioLive_Connect("10.0.0.14"))
+    Print(PreSonusStudioLive_SubscribeMeters())
+    Print(PreSonusStudioLive_BindMeterWidget("PSL_Meter", 0, 26, 0))
+End
+
+On TimerTick(milliseconds : Double)
+    PreSonusStudioLive_PollWidgetBindings()
+End
+```
+
+For level polling without a widget:
+
+```gigperformer
+Initialization
+    Print(PreSonusStudioLive_Connect("10.0.0.14"))
+    Print(PreSonusStudioLive_SubscribeMeters())
+End
+
+On TimerTick(milliseconds : Double)
+    Print(PreSonusStudioLive_GetMeterLevel(0, 1))
+End
+```
+
+**Channel index is 1-based** (same as `SetLineMute` / LINE shortcuts): **`1` = input 1**, not 0. Passing channel **0** always returns **0.0** (no data).
+
+**`groupId` is 0-based:** **0** = input bank, **1**–**4** = downstream chain taps (see README).
+
+| Step | Pass? | Notes |
+| ---- | ----- | ----- |
+| `SubscribeMeters()` returns **True** | ✓ | Requires prior `Connect`; opens UDP **52704** |
+| `GetMeterLevel(0, 1)` changes with input 1 signal | ✓ | `groupId` **0** = input bank; **channel 1** = first input |
+| `extension.log` shows `Meter listener started` + `Meter levl frame` | ✓ | ~217 B frames on 32R |
+| `BindMeterWidget` + `PollWidgetBindings` in `On TimerTick` | ✓ | Verified ch **26** → `PSL_Meter` widget |
+
+**If levels stay 0:**
+
+1. Confirm **`SubscribeMeters()` returned True** and you called it **after** `Connect`.
+2. Use **channel 1** (not 0) for input 1: `GetMeterLevel(0, 1)`.
+3. Put signal on the desk (mic/playback) — silent inputs meter at 0.
+4. Set log level **debug**, reproduce, then open `extension.log` (path from `LogFilePath()`):
+   - expect `Meter listener started on UDP port 52704`
+   - expect `Meter levl frame from 10.0.0.14` when packets arrive
+   - if you see `Meter UDP ignored` instead, capture that line — wrong packet shape
+5. Allow **inbound UDP 52704** in Windows Firewall from the mixer subnet (`10.0.0.14`).
+6. Close **UC Surface** if it holds the meter port, then reconnect and `SubscribeMeters()` again.

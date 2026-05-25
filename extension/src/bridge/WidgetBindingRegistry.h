@@ -22,6 +22,7 @@ enum class WidgetBindingKind
     LevelDb,
     Mute,
     Solo,
+    Meter,
 };
 
 enum class WidgetDirection : int
@@ -43,6 +44,8 @@ class WidgetBindingRegistry
                   const protocol::ChannelTarget &target, WidgetDirection direction);
     bool bindSolo(GpHost &host, const std::string &widget,
                   const protocol::ChannelTarget &target, WidgetDirection direction);
+    bool bindMeter(GpHost &host, const std::string &widget, int groupId, int channel,
+                   WidgetDirection direction);
 
     bool bindLineLevelLinear(GpHost &host, const std::string &widget, int channel,
                              WidgetDirection direction);
@@ -66,6 +69,8 @@ class WidgetBindingRegistry
         WidgetBindingKind kind{};
         WidgetDirection direction{WidgetDirection::Both};
         protocol::ChannelTarget target{};
+        int meterGroupId{0};
+        int meterChannel{0};
     };
 
     struct Suppression

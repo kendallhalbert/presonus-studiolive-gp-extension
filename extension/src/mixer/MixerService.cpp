@@ -12,6 +12,7 @@
 #include "protocol/PvParser.h"
 #include "protocol/ValueUtil.h"
 #include "transport/DiscoveryListener.h"
+#include "transport/MeterListener.h"
 #include "transport/WinSockTransport.h"
 
 #include <cctype>
@@ -77,6 +78,7 @@ MixerService::~MixerService()
     if (running_.load())
     {
         enqueue([this]() {
+            stopMeterListener();
             if (connection_)
             {
                 connection_->close();
@@ -144,6 +146,17 @@ void MixerService::ioLoop()
         if (connection_)
         {
             connection_->poll();
+        }
+
+        if (meterListener_ && meterListener_->isRunning())
+        {
+            const auto notify = stateChangeCallback_;
+            meterListener_->poll(meterCache_, [notify](const protocol::LevlMessage &) {
+                if (notify)
+                {
+                    notify();
+                }
+            });
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -358,6 +371,7 @@ bool MixerService::connect(const std::string &host, std::uint16_t port)
 void MixerService::disconnect()
 {
     enqueue([this]() {
+        stopMeterListener();
         if (connection_)
         {
             connection_->close();
@@ -1184,6 +1198,93 @@ bool MixerService::recallChannelStrip(const std::string &type,
         connection_->sendRaw(packet);
     });
     return true;
+}
+
+void MixerService::stopMeterListener()
+{
+    if (meterListener_)
+    {
+        meterListener_->stop();
+        meterListener_.reset();
+    }
+    meterCache_.clear();
+    metersSubscribed_.store(false);
+}
+
+bool MixerService::subscribeMeters(const std::uint16_t port)
+{
+    ensureThread();
+
+    std::atomic<bool> ok{false};
+    std::atomic<bool> done{false};
+    enqueue([this, port, &ok, &done]() {
+        stopMeterListener();
+
+        if (!connection_ || !connected_.load())
+        {
+            logger_.warn("SubscribeMeters: not connected");
+            ok.store(false);
+            done.store(true);
+            return;
+        }
+
+        meterListener_ = std::make_unique<transport::MeterListener>(logger_);
+        if (!meterListener_->start(port))
+        {
+            meterListener_.reset();
+            ok.store(false);
+            done.store(true);
+            return;
+        }
+
+        meterPort_ = port;
+        if (!connection_->sendRaw(protocol::createHelloPacket(port)))
+        {
+            logger_.warn("SubscribeMeters: Hello (UM) send failed");
+            stopMeterListener();
+            ok.store(false);
+            done.store(true);
+            return;
+        }
+
+        // Re-subscribe after Hello so the desk re-registers the levl stream (32R/UCNet).
+        if (!connection_->sendRaw(protocol::createSubscribePacket()))
+        {
+            logger_.warn("SubscribeMeters: re-subscribe JM send failed");
+        }
+
+        metersSubscribed_.store(true);
+        logger_.info("Meter subscription active on UDP port " + std::to_string(port));
+        ok.store(true);
+        done.store(true);
+    });
+
+    for (int i = 0; i < 500 && !done.load(); ++i)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return ok.load();
+}
+
+void MixerService::unsubscribeMeters()
+{
+    ensureThread();
+    enqueue([this]() { stopMeterListener(); });
+}
+
+bool MixerService::isMeterSubscribed() const
+{
+    return metersSubscribed_.load();
+}
+
+bool MixerService::hasMeterData() const
+{
+    return meterCache_.hasData();
+}
+
+std::optional<double> MixerService::getMeterLevel(const int groupId, const int channel) const
+{
+    return meterCache_.levelPercent(groupId, channel);
 }
 
 } // namespace presonus::studiolive::gpext::mixer

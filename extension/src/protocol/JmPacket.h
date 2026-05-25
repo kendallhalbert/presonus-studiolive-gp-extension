@@ -22,6 +22,9 @@ std::vector<std::uint8_t> createSubscribePacket();
 
 std::vector<std::uint8_t> createUnsubscribePacket();
 
+/// UM Hello — advertises the client's UDP metering port to the mixer.
+std::vector<std::uint8_t> createHelloPacket(std::uint16_t udpPort);
+
 /// JM RestorePreset — project/scene/channel recall (port of JS `recallProjectScene`).
 std::vector<std::uint8_t> createRestorePresetJmPayload(const std::string &presetFile,
                                                          const std::string &presetTarget = "");
