@@ -58,7 +58,7 @@ will be copied/symlinked there so it sits next to the implementation.
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-25 (Phases 0–5 complete, §1–§15 verified on 32R @ `10.0.0.14`)**
+**Last updated: 2026-05-25 (`main` @ `d94e388` — Phases 0–5 complete, §1–§15 verified on 32R)**
 
 ### TL;DR
 
@@ -197,7 +197,7 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 ```
 Branch:  main (in sync with origin/main)
 Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
-HEAD:    (Phase 5 commit on main — see git log)
+HEAD:    d94e388 — Complete Phase 5 metering; verify section 15 on 32R
 Tests:   78/78 green (Debug `build/` or Release `build-rel/`)
 Desk:    StudioLive 32R @ 10.0.0.14 (serial RA3E18090022), GP 5 Pro, SDK beta-sdk-v62
 Smoke:   §1–§15 hardware-verified (see docs/HARDWARE_SMOKE_TEST.md)
