@@ -1,5 +1,8 @@
 # PreSonus StudioLive — Gig Performer Extension
 
+[![ci](https://github.com/kendallhalbert/presonus-studiolive-gp-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/kendallhalbert/presonus-studiolive-gp-extension/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/kendallhalbert/presonus-studiolive-gp-extension?label=release)](https://github.com/kendallhalbert/presonus-studiolive-gp-extension/releases/latest)
+
 Native Windows extension (`PreSonusStudioLive.dll`) that connects
 [Gig Performer](https://gigperformer.com) to a **PreSonus StudioLive III**
 mixer over UCNet (TCP port 53000). Control the desk from **GPScript** using
@@ -15,8 +18,9 @@ This repo is the C++ implementation that supersedes the Node.js
 library. Wire-format behavior is validated against captured fixtures from a
 **StudioLive 32R** (firmware 3.3.0.109659).
 
-> **Status (2026-05-25):** Phases 0–5 **complete**; **§1–§15 hardware-verified** on 32R @ `10.0.0.14`.
-> **78 unit tests** across 30 executables.
+> **Status (2026-05-25):** **v1.0.0 released** — Phases 0–5 complete; **§1–§15 hardware-verified** on 32R @ `10.0.0.14`.
+> **78 unit tests** across 30 executables. Pre-built DLL:
+> [latest release](https://github.com/kendallhalbert/presonus-studiolive-gp-extension/releases/latest).
 >
 > Design, roadmap, and phase detail:
 > [`docs/GP_EXTENSION_PLAN.md`](docs/GP_EXTENSION_PLAN.md).
@@ -195,7 +199,16 @@ ctest --test-dir build -C Debug --output-on-failure
 
 Debug output: `build/bin/Debug/PreSonusStudioLive.dll` — for local dev and CI only.
 
-### Gig Performer install (Release)
+### Quick install (pre-built)
+
+1. Download **`PreSonusStudioLive.dll`** from the
+   [**latest GitHub Release**](https://github.com/kendallhalbert/presonus-studiolive-gp-extension/releases/latest)
+   (includes `SHA256SUMS.txt` for verification).
+2. Copy the DLL into Gig Performer’s **Extensions** folder (see paths below).
+3. In Gig Performer: **Options → Reload Third Party Libraries**, then enable
+   **PreSonus StudioLive** under **Options → Extensions**. Expect version **`1.0.0`**.
+
+### Build from source (Release)
 
 Gig Performer **cannot** load a Debug build. Debug DLLs depend on `MSVCP140D.dll`,
 `VCRUNTIME140D.dll`, and `ucrtbased.dll`, which are not present in a normal GP install.
@@ -224,7 +237,9 @@ Typical Extensions paths:
 - `%USERPROFILE%\Documents\Gig Performer\Extensions\`
 
 In Gig Performer: **Options → Reload Third Party Libraries** (or restart), then enable
-**PreSonus StudioLive** under **Options → Extensions**. Expect version `1.0.0`.
+**PreSonus StudioLive** under **Options → Extensions**.
+
+For day-to-day use, prefer the [pre-built Release](https://github.com/kendallhalbert/presonus-studiolive-gp-extension/releases/latest) over a local build unless you are developing on the extension.
 
 ---
 
@@ -236,7 +251,7 @@ holds the session), follow
 exercise (connect, mute, optional widget-driven steps, log file location).
 
 Confirmed on **StudioLive 32R** @ `10.0.0.14`: connect, LINE controls, AUX/FX sends, widgets,
-discovery, auto-connect, channel presets, and RETURN/DCA/SUB (§14).
+discovery, auto-connect, channel presets, RETURN/DCA/SUB (§14), and metering (§15).
 
 ---
 

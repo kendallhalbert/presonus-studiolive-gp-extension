@@ -7,6 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 # Cancel earlier in-flight runs for the same ref to save runner minutes.
 concurrency:
   group: ci-${{ github.ref }}
@@ -22,7 +25,7 @@ jobs:
     runs-on: windows-2022
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Ninja Multi-Config needs cl/link/lib on PATH; default GHA shell does not
       # load the Visual Studio developer environment.
@@ -62,7 +65,7 @@ jobs:
 
       - name: Upload PreSonusStudioLive.dll (debug)
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: PreSonusStudioLive-debug
           path: artifacts/PreSonusStudioLive.dll

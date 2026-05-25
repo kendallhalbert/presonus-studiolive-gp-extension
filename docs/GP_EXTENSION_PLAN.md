@@ -53,7 +53,7 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-22 | **Bookmark refresh.** Pushed `1836b45` — Phase 2 + Phase 4 complete; README API table updated; **§1–§14** hardware-verified on 32R @ `10.0.0.14`. **Next:** optional Phase 5 metering. |
 | 2026-05-25 | **Phase 5 metering (code):** `LevlParser`, `MeterCache`, UDP `MeterListener` on port **52704**, JM Hello subscribe, GPScript `SubscribeMeters` / `GetMeterLevel` / `HasMeterData` / `BindMeterWidget`; variable-size `levl` frames (32R sends ~217–567 B, not 1041 B); **`PollWidgetBindings` is a void procedure**; **78 tests** green. |
 | 2026-05-25 | **§15 metering hardware verified** on 32R @ `10.0.0.14` — `GetMeterLevel`, meter widget bind + `PollWidgetBindings`; Windows Firewall inbound UDP **52704** required. **Phases 0–5 complete; v1 feature-complete.** |
-| 2026-05-25 | **v1.0.0 release.** Drop `-phase0` version tag; Phases 0–5 complete. |
+| 2026-05-25 | **v1.0.0 GitHub Release.** Tag-triggered `release.yml` workflow; published at [releases/latest](https://github.com/kendallhalbert/presonus-studiolive-gp-extension/releases/latest). |
 
 ---
 
