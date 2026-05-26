@@ -193,9 +193,9 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 **C++ repo** (`presonus-studiolive-gp-extension`):
 
 ```
-Branch:  main (ahead of origin/main — scene picker commit pending push)
+Branch:  main (ahead of origin/main — scene picker push pending)
 Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
-HEAD:    (pending) — Scene picker panel: GetPanelXML, display-name APIs, GPScript + docs
+HEAD:    56c6232 — Scene picker panel: GetPanelXML, display-name APIs, GPScript + docs
 Tests:   85/85 green (Release `build-rel/`)
 Desk:    StudioLive 32R @ 10.0.0.14 (serial RA3E18090022), GP 5 Pro, SDK beta-sdk-v62
 Smoke:   §1–§15 hardware-verified; scene picker panel **not yet hardware-tested**
