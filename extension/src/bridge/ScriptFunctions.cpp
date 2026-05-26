@@ -1,6 +1,7 @@
 #include "bridge/ScriptFunctions.h"
 
 #include "bridge/ConfigStore.h"
+#include "bridge/DisplayNameUtil.h"
 #include "bridge/ExtensionContext.h"
 #include "bridge/FileLogSink.h"
 #include "bridge/LogLevelUtil.h"
@@ -522,6 +523,22 @@ extern "C" void psl_GetCurrentScene(GPRuntimeEngine *vm)
     mixer::MixerService *const svc = mixer();
     const std::string name = svc != nullptr ? svc->getCurrentSceneFile() : std::string{};
     GP_VM_PushString(vm, name.c_str());
+}
+
+extern "C" void psl_GetSceneDisplayName(GPRuntimeEngine *vm)
+{
+    char sceneFileBuffer[256] = {};
+    GP_VM_PopString(vm, sceneFileBuffer, static_cast<int>(sizeof(sceneFileBuffer)));
+    const std::string display = presetFileDisplayName(sceneFileBuffer);
+    GP_VM_PushString(vm, display.c_str());
+}
+
+extern "C" void psl_GetProjectDisplayName(GPRuntimeEngine *vm)
+{
+    char projectFileBuffer[256] = {};
+    GP_VM_PopString(vm, projectFileBuffer, static_cast<int>(sizeof(projectFileBuffer)));
+    const std::string display = presetFileDisplayName(projectFileBuffer);
+    GP_VM_PushString(vm, display.c_str());
 }
 
 extern "C" void psl_SetMute(GPRuntimeEngine *vm)
@@ -1282,6 +1299,20 @@ ExternalAPI_GPScriptFunctionDefinition kScriptFunctions[] = {
         "Returns String",
         "Loaded scene file name from mixer state (empty if unknown).",
         &psl_GetCurrentScene,
+    },
+    {
+        "GetSceneDisplayName",
+        "sceneFile : String",
+        "Returns String",
+        "Friendly scene title from a .scn filename (e.g. 01.Live Performance.scn).",
+        &psl_GetSceneDisplayName,
+    },
+    {
+        "GetProjectDisplayName",
+        "projectFile : String",
+        "Returns String",
+        "Friendly project title from a .proj filename (e.g. 01.West End Girls.proj).",
+        &psl_GetProjectDisplayName,
     },
     {
         "SetMute",

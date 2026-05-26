@@ -52,12 +52,14 @@ class LibMain final : public gigperformer::sdk::GigPerformerAPI
     void OnSongPartChanged(int oldIndex, int newIndex) override;
 
     // ---- GPScript -------------------------------------------------------
-    // Note: GPScript_AllowedLocations and ExternalAPI_GPScriptFunctionDefinition
-    // are C types in the global namespace (declared inside extern "C" in
-    // gigperformer/sdk/types.h), not in `gigperformer::sdk`.
     int RequestGPScriptFunctionSignatureList(
         GPScript_AllowedLocations location,
         ExternalAPI_GPScriptFunctionDefinition **list) override;
+
+    // ---- Panel template -------------------------------------------------
+    int GetPanelCount() override;
+    std::string GetPanelName(int index) override;
+    std::string GetPanelXML(int index) override;
 
   private:
     LibraryHandle handle_{nullptr};

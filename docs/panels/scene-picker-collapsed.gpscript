@@ -1,0 +1,224 @@
+// PreSonus StudioLive — collapsed scene picker (Design A)
+// Paste into the rackspace Script Editor after inserting the "PreSonus Scene Picker" panel.
+// Requires PreSonusStudioLive extension with auto-connect enabled.
+
+Var CurrentSceneLabel, SelectButton : Widget
+Var PickerProjectLabel, PickerSceneLabel : Widget
+Var ProjPrev, ProjNext, ScenePrev, SceneNext : Widget
+Var ProjCountLabel, SceneCountLabel : Widget
+Var RecallButton, DoneButton : Widget
+Var ProjectStore, SceneStore : Widget
+
+Var projectIdx, sceneIdx : Integer
+Var projectFile, sceneFile : String
+
+Function IndexToNorm(idx : Integer, count : Integer) Returns Double
+    If count <= 1 Then
+        result = 0.0
+    Else
+        result = (idx - 1) / (count - 1)
+    End
+End
+
+Function NormToIndex(v : Double, count : Integer) Returns Integer
+    Var idx : Integer
+    If count <= 0 Then
+        result = 1
+    ElseIf count = 1 Then
+        result = 1
+    Else
+        idx = 1 + Floor(v * count)
+        If idx < 1 Then
+            idx = 1
+        End
+        If idx > count Then
+            idx = count
+        End
+        result = idx
+    End
+End
+
+Function WaitForConnection()
+    Var tries : Integer
+    tries = 0
+    While Not PreSonusStudioLive_IsConnected() And tries < 50
+        Wait(100)
+        tries = tries + 1
+    End
+End
+
+Function SetPickerVisible(show : Boolean)
+    SetWidgetHideOnPresentation(PickerProjectLabel, Not show)
+    SetWidgetHideOnPresentation(ProjPrev, Not show)
+    SetWidgetHideOnPresentation(ProjNext, Not show)
+    SetWidgetHideOnPresentation(ProjCountLabel, Not show)
+    SetWidgetHideOnPresentation(PickerSceneLabel, Not show)
+    SetWidgetHideOnPresentation(ScenePrev, Not show)
+    SetWidgetHideOnPresentation(SceneNext, Not show)
+    SetWidgetHideOnPresentation(SceneCountLabel, Not show)
+    SetWidgetHideOnPresentation(RecallButton, Not show)
+    SetWidgetHideOnPresentation(DoneButton, Not show)
+End
+
+Function SaveSelection()
+    Var projectCount, sceneCount : Integer
+    projectCount = PreSonusStudioLive_GetProjectCount()
+    If projectCount > 0 Then
+        SetWidgetValue(ProjectStore, IndexToNorm(projectIdx, projectCount))
+        projectFile = PreSonusStudioLive_GetProjectName(projectIdx)
+        sceneCount = PreSonusStudioLive_GetSceneCount(projectFile)
+        If sceneCount > 0 Then
+            SetWidgetValue(SceneStore, IndexToNorm(sceneIdx, sceneCount))
+        End
+    End
+End
+
+Function LoadSelectionFromWidgets()
+    Var projectCount, sceneCount : Integer
+    projectCount = PreSonusStudioLive_GetProjectCount()
+    If projectCount <= 0 Then
+        projectIdx = 1
+        sceneIdx = 1
+    Else
+        projectIdx = NormToIndex(GetWidgetValue(ProjectStore), projectCount)
+        projectFile = PreSonusStudioLive_GetProjectName(projectIdx)
+        sceneCount = PreSonusStudioLive_GetSceneCount(projectFile)
+        If sceneCount <= 0 Then
+            sceneIdx = 1
+        Else
+            sceneIdx = NormToIndex(GetWidgetValue(SceneStore), sceneCount)
+        End
+    End
+End
+
+Function UpdateCurrentSceneLabel()
+    Var projectCount, sceneCount : Integer
+    projectCount = PreSonusStudioLive_GetProjectCount()
+    If projectCount <= 0 Then
+        SetWidgetLabel(CurrentSceneLabel, "(not connected)")
+    ElseIf projectIdx < 1 Or projectIdx > projectCount Then
+        SetWidgetLabel(CurrentSceneLabel, "(no project)")
+    Else
+        projectFile = PreSonusStudioLive_GetProjectName(projectIdx)
+        sceneCount = PreSonusStudioLive_GetSceneCount(projectFile)
+        If sceneCount <= 0 Or sceneIdx < 1 Or sceneIdx > sceneCount Then
+            SetWidgetLabel(CurrentSceneLabel, "(no scene)")
+        Else
+            sceneFile = PreSonusStudioLive_GetSceneName(projectFile, sceneIdx)
+            SetWidgetLabel(CurrentSceneLabel, PreSonusStudioLive_GetSceneDisplayName(sceneFile))
+        End
+    End
+End
+
+Function UpdatePickerLabels()
+    Var projectCount, sceneCount : Integer
+    projectCount = PreSonusStudioLive_GetProjectCount()
+    If projectCount <= 0 Then
+        SetWidgetLabel(PickerProjectLabel, "(none)")
+        SetWidgetLabel(PickerSceneLabel, "(none)")
+        SetWidgetLabel(ProjCountLabel, "0/0")
+        SetWidgetLabel(SceneCountLabel, "0/0")
+    Else
+        projectFile = PreSonusStudioLive_GetProjectName(projectIdx)
+        SetWidgetLabel(PickerProjectLabel, PreSonusStudioLive_GetProjectDisplayName(projectFile))
+        SetWidgetLabel(ProjCountLabel, projectIdx + "/" + projectCount)
+        sceneCount = PreSonusStudioLive_GetSceneCount(projectFile)
+        If sceneCount <= 0 Then
+            SetWidgetLabel(PickerSceneLabel, "(none)")
+            SetWidgetLabel(SceneCountLabel, "0/0")
+        Else
+            sceneFile = PreSonusStudioLive_GetSceneName(projectFile, sceneIdx)
+            SetWidgetLabel(PickerSceneLabel, PreSonusStudioLive_GetSceneDisplayName(sceneFile))
+            SetWidgetLabel(SceneCountLabel, sceneIdx + "/" + sceneCount)
+        End
+    End
+End
+
+Function RecallSelection() Returns Boolean
+    projectFile = PreSonusStudioLive_GetProjectName(projectIdx)
+    sceneFile = PreSonusStudioLive_GetSceneName(projectFile, sceneIdx)
+    result = PreSonusStudioLive_RecallProjectScene(projectFile, sceneFile)
+End
+
+Initialization
+    SetPickerVisible(False)
+    WaitForConnection()
+    If PreSonusStudioLive_IsConnected() Then
+        Print(PreSonusStudioLive_GetProjectCount())
+        LoadSelectionFromWidgets()
+        UpdateCurrentSceneLabel()
+        RecallSelection()
+    Else
+        SetWidgetLabel(CurrentSceneLabel, "(not connected)")
+    End
+End
+
+On WidgetValueChanged(newValue : Double) from SelectButton
+    SetPickerVisible(True)
+    UpdatePickerLabels()
+End
+
+On WidgetValueChanged(newValue : Double) from DoneButton
+    SetPickerVisible(False)
+End
+
+On WidgetValueChanged(newValue : Double) from RecallButton
+    If RecallSelection() Then
+        UpdateCurrentSceneLabel()
+    End
+    SetPickerVisible(False)
+End
+
+On WidgetValueChanged(newValue : Double) from ProjPrev
+    If projectIdx > 1 Then
+        projectIdx = projectIdx - 1
+        sceneIdx = 1
+        SaveSelection()
+        UpdatePickerLabels()
+    End
+End
+
+On WidgetValueChanged(newValue : Double) from ProjNext
+    Var projectCount : Integer
+    projectCount = PreSonusStudioLive_GetProjectCount()
+    If projectIdx < projectCount Then
+        projectIdx = projectIdx + 1
+        sceneIdx = 1
+        SaveSelection()
+        UpdatePickerLabels()
+    End
+End
+
+On WidgetValueChanged(newValue : Double) from ScenePrev
+    If sceneIdx > 1 Then
+        sceneIdx = sceneIdx - 1
+        SaveSelection()
+        UpdatePickerLabels()
+    End
+End
+
+On WidgetValueChanged(newValue : Double) from SceneNext
+    Var sceneCount : Integer
+    projectFile = PreSonusStudioLive_GetProjectName(projectIdx)
+    sceneCount = PreSonusStudioLive_GetSceneCount(projectFile)
+    If sceneIdx < sceneCount Then
+        sceneIdx = sceneIdx + 1
+        SaveSelection()
+        UpdatePickerLabels()
+    End
+End
+
+On Variation(oldVariation : Integer, newVariation : Integer)
+    SetPickerVisible(False)
+    If PreSonusStudioLive_IsConnected() Then
+        LoadSelectionFromWidgets()
+        UpdateCurrentSceneLabel()
+        RecallSelection()
+    End
+End
+
+On Activate()
+    If PreSonusStudioLive_IsConnected() Then
+        UpdateCurrentSceneLabel()
+    End
+End

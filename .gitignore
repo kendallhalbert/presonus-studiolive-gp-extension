@@ -1,3 +1,6 @@
+# ---------------- local SDK clone (CI uses .gp-sdk in workspace) ----------------
+.gp-sdk/
+
 # ---------------- compiler / build outputs ----------------
 build/
 build-rel/

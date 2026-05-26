@@ -54,26 +54,22 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-25 | **Phase 5 metering (code):** `LevlParser`, `MeterCache`, UDP `MeterListener` on port **52704**, JM Hello subscribe, GPScript `SubscribeMeters` / `GetMeterLevel` / `HasMeterData` / `BindMeterWidget`; variable-size `levl` frames (32R sends ~217–567 B, not 1041 B); **`PollWidgetBindings` is a void procedure**; **78 tests** green. |
 | 2026-05-25 | **§15 metering hardware verified** on 32R @ `10.0.0.14` — `GetMeterLevel`, meter widget bind + `PollWidgetBindings`; Windows Firewall inbound UDP **52704** required. **Phases 0–5 complete; v1 feature-complete.** |
 | 2026-05-25 | **v1.0.0 GitHub Release.** Tag-triggered `release.yml` workflow; published at [releases/latest](https://github.com/kendallhalbert/presonus-studiolive-gp-extension/releases/latest). |
+| 2026-05-25 | **Scene picker panel (code):** collapsed strip (scene label + Select) + Design A picker overlay; `GetPanelXML` template **PreSonus Scene Picker**; GPScript companion + setup doc; `GetSceneDisplayName` / `GetProjectDisplayName`; per-variation auto-recall; **85 tests** green. **Next:** hardware smoke for scene picker on 32R. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-25 (`main` @ `d94e388` — Phases 0–5 complete, §1–§15 verified on 32R)**
+**Last updated: 2026-05-25 (scene picker panel landed locally; push pending hardware smoke)**
 
 ### TL;DR
 
-Phase 0 **complete** on GP 5 Pro. Phase 1 wire + TCP session layer **done**.
-**Phase 2 complete:** LINE shortcuts + generic mute/level (linear + dB) for **main, AUX, and FX sends**,
-solo/pan/color/count for **RETURN, DCA, SUB, MAIN, AUX bus**, generic widget binds (`BindLevelWidgetLinear/Db`, `BindMuteWidget`, `BindSoloWidget`),
-`GetCurrentProject`/`Scene`, project/scene list, **JM RestorePreset** scene recall, **fade transitions** (`fadeMs` on `SetLevelLinear` / `SetLevelDb` — **§10 verified**).
-**Phase 3 slice:** LINE widget bindings — **hardware verified** (bidirectional fader + mute Switch),
-song→scene bindings (`BindSongToScene`, `OnSongChanged`) — **§9 verified** (setlist mode).
-**78 tests** green (30 executables). **Hardware verified on 32R @ `10.0.0.14`:**
-connect, LINE controls, project/scene list, scene recall, widget mirroring (§7), **AUX/FX sends (§8)**,
-**song→scene (§9)**, **fade transitions (§10)**, **UDP discovery (§11)**, **auto-connect (§12)**,
-**channel presets (§13)**, **RETURN/DCA/SUB (§14)**, **metering (§15)**.
-**Phases 0–5 complete.** **v1 GPScript surface complete** (see `README.md` API table + §4 below). **Nothing blocking v1.**
+Phase 0 **complete** on GP 5 Pro. Phases 1–5 **complete**; **§1–§15 hardware-verified** on 32R.
+**v1.0.0 released** on GitHub. **New (unverified on desk):** **Scene picker panel** —
+collapsed rackspace strip (friendly scene label + **Select**), expandable project/scene
+browser, separate **Recall** / **Done**, per-variation persistence + **auto-recall** on
+variation change. See `docs/panels/SCENE_PICKER_SETUP.md` + `scene-picker-collapsed.gpscript`.
+**85 tests** green (31 executables). **Next:** GP panel install + scene-picker hardware smoke on 32R.
 
 ### What's done
 
@@ -99,6 +95,7 @@ connect, LINE controls, project/scene list, scene recall, widget mirroring (§7)
 | **Hardware smoke test** | **§1–§15 verified** on 32R @ `10.0.0.14` (serial `RA3E18090022`) — see `docs/HARDWARE_SMOKE_TEST.md` |
 | **Phase 3 (slice)** | Widget binding registry + **hardware-verified** bidirectional sync; **hardware-verified** song→scene bindings |
 | **Public API docs** | `README.md` — full `PreSonusStudioLive_*` function table (updated 2026-05-22) |
+| **Scene picker panel** | `GetPanelXML` template + `docs/panels/SCENE_PICKER_SETUP.md` + `scene-picker-collapsed.gpscript`; display-name helpers |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
 ### GP smoke test notes (2026-05-20, confirmed)
@@ -196,12 +193,13 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 **C++ repo** (`presonus-studiolive-gp-extension`):
 
 ```
-Branch:  main (in sync with origin/main)
+Branch:  main (ahead of origin/main — scene picker commit pending push)
 Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
-HEAD:    d94e388 — Complete Phase 5 metering; verify section 15 on 32R
-Tests:   78/78 green (Debug `build/` or Release `build-rel/`)
+HEAD:    (pending) — Scene picker panel: GetPanelXML, display-name APIs, GPScript + docs
+Tests:   85/85 green (Release `build-rel/`)
 Desk:    StudioLive 32R @ 10.0.0.14 (serial RA3E18090022), GP 5 Pro, SDK beta-sdk-v62
-Smoke:   §1–§15 hardware-verified (see docs/HARDWARE_SMOKE_TEST.md)
+Smoke:   §1–§15 hardware-verified; scene picker panel **not yet hardware-tested**
+Panel:   docs/panels/SCENE_PICKER_SETUP.md — New panel → PreSonus Scene Picker
 ```
 
 **GP install DLL** (local Release, SDK v62):
@@ -235,7 +233,7 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
-| — | — | **Nothing blocking v1.** Phases 0–5 complete; hardware-verified §1–§15 on 32R. |
+| Scene picker panel hardware smoke | User | Install new DLL; **New panel → PreSonus Scene Picker**; paste `scene-picker-collapsed.gpscript` |
 | Discovery fixture gap | Low | Capture skipped `01-discovery-broadcast`; §11 verified live on LAN instead |
 | Meter fixture gap | Low | Capture skipped `18-meter-levl-frame`; §15 verified live (~217 B frames on 32R) |
 

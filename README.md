@@ -19,7 +19,7 @@ library. Wire-format behavior is validated against captured fixtures from a
 **StudioLive 32R** (firmware 3.3.0.109659).
 
 > **Status (2026-05-25):** **v1.0.0 released** — Phases 0–5 complete; **§1–§15 hardware-verified** on 32R @ `10.0.0.14`.
-> **78 unit tests** across 30 executables. Pre-built DLL:
+> **85 unit tests** across 31 executables. Pre-built DLL:
 > [latest release](https://github.com/kendallhalbert/presonus-studiolive-gp-extension/releases/latest).
 >
 > Design, roadmap, and phase detail:
@@ -93,6 +93,8 @@ visible to script authors.
 | `PreSonusStudioLive_RecallProjectScene` | `projectFile : String`, `sceneFile : String` | Boolean |
 | `PreSonusStudioLive_GetCurrentProject` | — | String |
 | `PreSonusStudioLive_GetCurrentScene` | — | String |
+| `PreSonusStudioLive_GetSceneDisplayName` | `sceneFile : String` | String |
+| `PreSonusStudioLive_GetProjectDisplayName` | `projectFile : String` | String |
 | `PreSonusStudioLive_GetChannelPresetCount` | — | Integer |
 | `PreSonusStudioLive_GetChannelPresetName` | `index : Integer` | String |
 | `PreSonusStudioLive_RecallChannelStrip` | `type : String`, `channel : Integer`, `chanFile : String` | Boolean |
@@ -151,6 +153,15 @@ Initialization
     Print(PreSonusStudioLive_Version())
 End
 ```
+
+### Scene picker panel
+
+The extension ships a **PreSonus Scene Picker** panel template (collapsed strip: scene
+label + **Select**; expands to browse project/scene, **Recall**, **Done**). Per-variation
+scene selection with auto-recall on variation change.
+
+Setup: [`docs/panels/SCENE_PICKER_SETUP.md`](docs/panels/SCENE_PICKER_SETUP.md) and
+[`docs/panels/scene-picker-collapsed.gpscript`](docs/panels/scene-picker-collapsed.gpscript).
 
 ---
 

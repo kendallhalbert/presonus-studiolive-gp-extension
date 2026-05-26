@@ -11,6 +11,7 @@
 #include "bridge/RealGpHost.h"
 
 #include "bridge/ScriptFunctions.h"
+#include "panels/ScenePickerPanel.h"
 #include "Version.h"
 
 #include <optional>
@@ -361,6 +362,52 @@ int LibMain::RequestGPScriptFunctionSignatureList(
     }
 
     return bridge::scriptFunctionCount();
+
+}
+
+
+
+int LibMain::GetPanelCount()
+
+{
+
+    return 1;
+
+}
+
+
+
+std::string LibMain::GetPanelName(int index)
+
+{
+
+    if (index == 0)
+
+    {
+
+        return panels::kScenePickerPanelName;
+
+    }
+
+    return {};
+
+}
+
+
+
+std::string LibMain::GetPanelXML(int index)
+
+{
+
+    if (index != 0)
+
+    {
+
+        return {};
+
+    }
+
+    return panels::scenePickerPanelXml(getPathToMe());
 
 }
 
