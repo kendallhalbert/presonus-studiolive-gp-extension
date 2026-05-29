@@ -675,8 +675,9 @@ Collapsed rackspace strip (friendly scene label + **Select**) → project/scene 
 
 1. Install the Release DLL (`.\tools\install-gp-release.ps1`), then **Options → Reload Third Party Libraries**.
 2. Ensure **auto-connect** is configured (saved mixer in `%APPDATA%\PreSonusStudioLive\config.json`) so the panel connects without a `Connect` call.
-3. Rackspace **Panels** view → **Edit** → **New panel → PreSonus Scene Picker**.
-4. **Window → Show Rackspace Script Editor**, paste `docs/panels/scene-picker-collapsed.gpscript`, save the gig.
+3. Build the scene picker panel **manually** in GP (see `docs/panels/SCENE_PICKER_SETUP.md` — the `GetPanelXML` template is disabled because it crashes GP 5.2.2).
+4. Add all 14 widgets with Advanced handles; set **Ignore variations = off** on `ProjectStore` / `SceneStore`.
+5. **Window → Show Rackspace Script Editor**, paste `docs/panels/scene-picker-collapsed.gpscript`, save the gig.
 
 ### Checklist
 

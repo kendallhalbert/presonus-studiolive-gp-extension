@@ -371,7 +371,10 @@ int LibMain::GetPanelCount()
 
 {
 
-    return 1;
+    // Panel XML via GetPanelXML crashes GP 5.2.2 with every template we have tried
+    // (hand-authored, Analog GPSCALE clones, and gp-radiobuttons-style exports).
+    // Build the panel manually in GP until a safe template is confirmed.
+    return 0;
 
 }
 

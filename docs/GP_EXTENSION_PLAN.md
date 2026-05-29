@@ -55,21 +55,26 @@ will be copied/symlinked there so it sits next to the implementation.
 | 2026-05-25 | **§15 metering hardware verified** on 32R @ `10.0.0.14` — `GetMeterLevel`, meter widget bind + `PollWidgetBindings`; Windows Firewall inbound UDP **52704** required. **Phases 0–5 complete; v1 feature-complete.** |
 | 2026-05-25 | **v1.0.0 GitHub Release.** Tag-triggered `release.yml` workflow; published at [releases/latest](https://github.com/kendallhalbert/presonus-studiolive-gp-extension/releases/latest). |
 | 2026-05-25 | **Scene picker panel (code):** collapsed strip (scene label + Select) + Design A picker overlay; `GetPanelXML` template **PreSonus Scene Picker**; GPScript companion + setup doc; `GetSceneDisplayName` / `GetProjectDisplayName`; per-variation auto-recall; **85 tests** green. **Next:** hardware smoke for scene picker on 32R. |
+| 2026-05-29 | **Scene picker panel crash fixed.** GP crashed inserting the panel because the hand-authored `GetPanelXML` was missing the full GP 5.2.2 widget attribute set + `<GPSCALE>`/`<FONTPROPERTIES>` children. Attempted fix: ship a GP-exported `.gppanel` beside the DLL. **Superseded** — see next entries. |
+| 2026-05-29 | **Scene picker blank-panel (path bug).** `getPathToMe()` is the Extensions **folder** (SDK); external `.gppanel` override with UTF-8 BOM → blank panel. Fixed path + BOM strip; still unreliable. |
+| 2026-05-29 | **Scene picker GP 5.2.2 crashes (all GetPanelXML templates).** Hand-authored, Analog GPSCALE clones (172 KB), gp-radiobuttons-style (16 KB), and file overrides all crash GP at the same address on panel insert. **Knobs/sliders cannot be returned safely via `GetPanelXML`.** **`GetPanelCount()` → 0** (template disabled). Manual panel build documented in `docs/panels/SCENE_PICKER_SETUP.md` + §16. GPScript + mixer APIs unchanged. **Next:** build panel manually in GP → §16 hardware smoke on 32R. |
 
 ---
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-25 (`main` @ `884068e`, pushed; scene picker awaiting hardware smoke on 32R)**
+**Last updated: 2026-05-29 (GetPanelXML disabled; manual scene picker panel; awaiting §16 hardware smoke)**
 
 ### TL;DR
 
 Phase 0 **complete** on GP 5 Pro. Phases 1–5 **complete**; **§1–§15 hardware-verified** on 32R.
-**v1.0.0 released** on GitHub. **New (unverified on desk):** **Scene picker panel** —
-collapsed rackspace strip (friendly scene label + **Select**), expandable project/scene
-browser, separate **Recall** / **Done**, per-variation persistence + **auto-recall** on
-variation change. See `docs/panels/SCENE_PICKER_SETUP.md` + `scene-picker-collapsed.gpscript`.
-**85 tests** green (31 executables). **Next:** GP panel install + scene-picker hardware smoke on 32R.
+**v1.0.0 released** on GitHub. **Scene picker (code):** GPScript + display-name APIs +
+per-variation auto-recall are implemented (`scene-picker-collapsed.gpscript`). **`GetPanelXML`
+panel template disabled** — every XML format tried crashes **GP 5.2.2** on insert (hand-authored,
+Analog GPSCALE clones, gp-radiobuttons-style). **`GetPanelCount()` returns 0.** Build the panel
+**manually** in GP (14 widgets, Advanced handles) per `docs/panels/SCENE_PICKER_SETUP.md`.
+**85 tests** green (31 executables). **Next:** manual panel in GP → §16 hardware smoke on 32R.
+Optional: export a working panel from GP and attach `.gppanel` for a future safe template.
 
 ### What's done
 
@@ -95,7 +100,7 @@ variation change. See `docs/panels/SCENE_PICKER_SETUP.md` + `scene-picker-collap
 | **Hardware smoke test** | **§1–§15 verified** on 32R @ `10.0.0.14` (serial `RA3E18090022`) — see `docs/HARDWARE_SMOKE_TEST.md` |
 | **Phase 3 (slice)** | Widget binding registry + **hardware-verified** bidirectional sync; **hardware-verified** song→scene bindings |
 | **Public API docs** | `README.md` — full `PreSonusStudioLive_*` function table (updated 2026-05-22) |
-| **Scene picker panel** | `GetPanelXML` template + `docs/panels/SCENE_PICKER_SETUP.md` + `scene-picker-collapsed.gpscript`; display-name helpers |
+| **Scene picker panel** | GPScript + APIs done; **`GetPanelCount()` = 0** (GP 5.2.2 crashes on all `GetPanelXML` templates). Manual panel: `docs/panels/SCENE_PICKER_SETUP.md`, `scene-picker-collapsed.gpscript`, §16 in `HARDWARE_SMOKE_TEST.md`. Generator scripts: `tools/generate-scene-picker-panel.ps1` (experimental; do not install `.gppanel` override). |
 | **CI SDK v62** | `.github/workflows/ci.yml` clones `beta-sdk-v62` |
 
 ### GP smoke test notes (2026-05-20, confirmed)
@@ -193,23 +198,24 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 **C++ repo** (`presonus-studiolive-gp-extension`):
 
 ```
-Branch:  main (in sync with origin/main)
+Branch:  main (ahead of origin/main — scene picker panel disable commit pending push)
 Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
-HEAD:    884068e — Update resumption bookmark HEAD after scene picker commit
+HEAD:    (this commit) — disable GetPanelXML scene picker; manual panel docs
 Release: v1.0.0 tagged + published on GitHub (scene picker is post-v1.0.0; no v1.0.1 tag yet)
 Tests:   85/85 green (Release `build-rel/`)
-Desk:    StudioLive 32R @ 10.0.0.14 (serial RA3E18090022), GP 5 Pro, SDK beta-sdk-v62
-Smoke:   §1–§15 hardware-verified; scene picker panel **not yet hardware-tested**
-Panel:   docs/panels/SCENE_PICKER_SETUP.md — New panel → PreSonus Scene Picker
+Desk:    StudioLive 32R @ 10.0.0.14 (serial RA3E18090022), GP 5.2.2 Pro, SDK beta-sdk-v62
+Smoke:   §1–§15 hardware-verified; §16 scene picker **not yet hardware-tested**
+Panel:   GetPanelXML **disabled** (`GetPanelCount=0`). Manual build: SCENE_PICKER_SETUP.md
 ```
 
 **GP install DLL** (local Release, SDK v62):
 
 ```
-C:\Users\KenHa\source\repos\presonus\presonus-studiolive-gp-extension\build-rel\bin\Release\PreSonusStudioLive.dll
+C:\Users\Public\Documents\Gig Performer\Extensions\PreSonusStudioLive.dll  (~401 KB, 2026-05-29)
 ```
 
-Rebuild + `.\tools\install-gp-release.ps1` after pulling changes.
+Rebuild + `.\tools\install-gp-release.ps1` after pulling changes. Installer **removes**
+`PreSonusScenePicker.gppanel` override if present (caused blank panel / crashes).
 
 **GP SDK clone** (sibling, not a submodule):
 
@@ -234,7 +240,8 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
-| Scene picker panel hardware smoke | User | Install new DLL; **New panel → PreSonus Scene Picker**; paste `scene-picker-collapsed.gpscript`. Runbook: `docs/HARDWARE_SMOKE_TEST.md` §16 + `docs/panels/SCENE_PICKER_SETUP.md` |
+| Scene picker §16 hardware smoke | User | **`GetPanelCount=0`** — do **not** use New panel → PreSonus Scene Picker. Build panel manually (14 widgets + handles); paste `scene-picker-collapsed.gpscript`. Runbook: `HARDWARE_SMOKE_TEST.md` §16 + `SCENE_PICKER_SETUP.md` |
+| Safe GetPanelXML template | Dev | All programmatic panel XML crashes GP 5.2.2. Need a **GP-exported** `.gppanel` from a manually built working panel, or defer template permanently |
 | Discovery fixture gap | Low | Capture skipped `01-discovery-broadcast`; §11 verified live on LAN instead |
 | Meter fixture gap | Low | Capture skipped `18-meter-levl-frame`; §15 verified live (~217 B frames on 32R) |
 

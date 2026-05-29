@@ -11,39 +11,23 @@ Var ProjectStore, SceneStore : Widget
 
 Var projectIdx, sceneIdx : Integer
 Var projectFile, sceneFile : String
+Var didInitialRecall : Boolean
 
 Function IndexToNorm(idx : Integer, count : Integer) Returns Double
     If count <= 1 Then
         result = 0.0
     Else
-        result = (idx - 1) / (count - 1)
+        // Integer division truncates, so promote to Double before dividing.
+        result = IntToFloat(idx - 1) / IntToFloat(count - 1)
     End
 End
 
 Function NormToIndex(v : Double, count : Integer) Returns Integer
-    Var idx : Integer
-    If count <= 0 Then
-        result = 1
-    ElseIf count = 1 Then
+    If count <= 1 Then
         result = 1
     Else
-        idx = 1 + Floor(v * count)
-        If idx < 1 Then
-            idx = 1
-        End
-        If idx > count Then
-            idx = count
-        End
-        result = idx
-    End
-End
-
-Function WaitForConnection()
-    Var tries : Integer
-    tries = 0
-    While Not PreSonusStudioLive_IsConnected() And tries < 50
-        Wait(100)
-        tries = tries + 1
+        // ScaleRange maps a 0..1 Double to a rounded Integer in [1, count].
+        result = ScaleRange(v, 1, count)
     End
 End
 
@@ -96,7 +80,7 @@ Function UpdateCurrentSceneLabel()
     projectCount = PreSonusStudioLive_GetProjectCount()
     If projectCount <= 0 Then
         SetWidgetLabel(CurrentSceneLabel, "(not connected)")
-    ElseIf projectIdx < 1 Or projectIdx > projectCount Then
+    Elsif projectIdx < 1 Or projectIdx > projectCount Then
         SetWidgetLabel(CurrentSceneLabel, "(no project)")
     Else
         projectFile = PreSonusStudioLive_GetProjectName(projectIdx)
@@ -121,7 +105,7 @@ Function UpdatePickerLabels()
     Else
         projectFile = PreSonusStudioLive_GetProjectName(projectIdx)
         SetWidgetLabel(PickerProjectLabel, PreSonusStudioLive_GetProjectDisplayName(projectFile))
-        SetWidgetLabel(ProjCountLabel, projectIdx + "/" + projectCount)
+        SetWidgetLabel(ProjCountLabel, IntToString(projectIdx) + "/" + IntToString(projectCount))
         sceneCount = PreSonusStudioLive_GetSceneCount(projectFile)
         If sceneCount <= 0 Then
             SetWidgetLabel(PickerSceneLabel, "(none)")
@@ -129,7 +113,7 @@ Function UpdatePickerLabels()
         Else
             sceneFile = PreSonusStudioLive_GetSceneName(projectFile, sceneIdx)
             SetWidgetLabel(PickerSceneLabel, PreSonusStudioLive_GetSceneDisplayName(sceneFile))
-            SetWidgetLabel(SceneCountLabel, sceneIdx + "/" + sceneCount)
+            SetWidgetLabel(SceneCountLabel, IntToString(sceneIdx) + "/" + IntToString(sceneCount))
         End
     End
 End
@@ -140,16 +124,37 @@ Function RecallSelection() Returns Boolean
     result = PreSonusStudioLive_RecallProjectScene(projectFile, sceneFile)
 End
 
-Initialization
-    SetPickerVisible(False)
-    WaitForConnection()
+// Void wrapper: GPScript cannot call a value-returning function as a bare
+// statement, so consume the result here and refresh the label on success.
+Function RecallAndRefresh()
+    If RecallSelection() Then
+        UpdateCurrentSceneLabel()
+    End
+End
+
+// GPScript callbacks cannot block (there is no Wait/Sleep). The extension
+// auto-connects on gig load, so we defer the first load to On TimerTick and
+// run it once, as soon as the connection is up.
+Function TryInitialLoad()
     If PreSonusStudioLive_IsConnected() Then
         Print(PreSonusStudioLive_GetProjectCount())
         LoadSelectionFromWidgets()
-        UpdateCurrentSceneLabel()
-        RecallSelection()
-    Else
-        SetWidgetLabel(CurrentSceneLabel, "(not connected)")
+        RecallAndRefresh()
+        didInitialRecall = true
+    End
+End
+
+Initialization
+    didInitialRecall = false
+    SetPickerVisible(False)
+    SetWidgetLabel(CurrentSceneLabel, "(connecting...)")
+    SetTimersRunning(true)
+    TryInitialLoad()
+End
+
+On TimerTick(milliseconds : Double)
+    If Not didInitialRecall Then
+        TryInitialLoad()
     End
 End
 
@@ -163,9 +168,7 @@ On WidgetValueChanged(newValue : Double) from DoneButton
 End
 
 On WidgetValueChanged(newValue : Double) from RecallButton
-    If RecallSelection() Then
-        UpdateCurrentSceneLabel()
-    End
+    RecallAndRefresh()
     SetPickerVisible(False)
 End
 
@@ -212,12 +215,11 @@ On Variation(oldVariation : Integer, newVariation : Integer)
     SetPickerVisible(False)
     If PreSonusStudioLive_IsConnected() Then
         LoadSelectionFromWidgets()
-        UpdateCurrentSceneLabel()
-        RecallSelection()
+        RecallAndRefresh()
     End
 End
 
-On Activate()
+On Activate
     If PreSonusStudioLive_IsConnected() Then
         UpdateCurrentSceneLabel()
     End

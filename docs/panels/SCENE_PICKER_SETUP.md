@@ -13,22 +13,50 @@ variations.
 
 ## Install
 
-1. Install or rebuild the extension DLL into Gig Performer’s **Extensions** folder.
+1. Build + install: `cmake --build build-rel --config Release` then `.\tools\install-gp-release.ps1`
 2. **Options → Reload Third Party Libraries** and enable **PreSonus StudioLive**.
 
-## Add the panel
+> **Panel template disabled:** `GetPanelXML` panel insertion crashes Gig Performer 5.2.2
+> with every XML format we have tested. Build the panel **manually** in GP (steps below).
+> The extension GPScript and mixer APIs work without the template.
+
+## Build the panel manually in GP
 
 1. Open a rackspace in **Panels** view → **Edit** mode.
-2. **New panel → PreSonus Scene Picker** (from the extension template).
-3. Open **Window → Show Rackspace Script Editor**.
-4. Paste the contents of [`scene-picker-collapsed.gpscript`](scene-picker-collapsed.gpscript).
-5. Save the gig.
+2. Create a **new empty panel** (or use an existing panel strip).
+3. Add widgets and set **Widget Properties → Advanced → Widget handle** for each:
 
-### Custom panel layout
+| Handle | Widget type | Visible when collapsed | Notes |
+| ------ | ----------- | ---------------------- | ----- |
+| `CurrentSceneLabel` | Text Label | Yes | Friendly scene name (script sets text) |
+| `SelectButton` | Button | Yes | Opens picker |
+| `PickerProjectLabel` | Text Label | Hidden | Project name in picker |
+| `ProjPrev` | Button | Hidden | ◀ project |
+| `ProjNext` | Button | Hidden | ▶ project |
+| `ProjCountLabel` | Text Label | Hidden | e.g. `1/3` |
+| `PickerSceneLabel` | Text Label | Hidden | Scene name in picker |
+| `ScenePrev` | Button | Hidden | ◀ scene |
+| `SceneNext` | Button | Hidden | ▶ scene |
+| `SceneCountLabel` | Text Label | Hidden | e.g. `2/5` |
+| `RecallButton` | Button | Hidden | Commits scene to desk |
+| `DoneButton` | Button | Hidden | Closes picker |
+| `ProjectStore` | Knob | Hidden | **Ignore variations = OFF** |
+| `SceneStore` | Knob | Hidden | **Ignore variations = OFF** |
 
-Export your edited panel as `PreSonusScenePicker.gppanel` into the same **Extensions**
-folder as the DLL. The extension loads that file instead of the built-in template when
-present. **Do not rename** the GPScript widget handles (see checklist below).
+4. Set **Hide in Presentation View** on all picker widgets (everything except
+   `CurrentSceneLabel` and `SelectButton`).
+5. Open **Window → Show Rackspace Script Editor**.
+6. Paste [`scene-picker-collapsed.gpscript`](scene-picker-collapsed.gpscript).
+7. Save the gig.
+
+### Tips
+
+- After placing widgets, use **Presentation** mode preview to confirm only the strip
+  (label + Select) shows when collapsed.
+- Store knobs (`ProjectStore`, `SceneStore`) can be tiny and tucked in a corner — the
+  script never shows them to the performer.
+- Export your finished panel (**File → Export panel** or GP’s panel export) and keep a
+  copy in the gig file; you can reuse it on other rackspaces.
 
 ## Presentation mode
 
@@ -43,14 +71,17 @@ In the widget inspector for **ProjectStore** and **SceneStore**: **Ignore variat
 
 ## First load behavior
 
-On rackspace **Initialization** the script:
+GPScript callbacks cannot block (there is no `Wait`/`Sleep`), so the script shows
+ **`(connecting...)`** on load, enables timers, and defers the first recall to
+`On TimerTick`. As soon as the extension auto-connect completes, the timer runs the
+initial load **once**:
 
-1. Waits briefly for extension auto-connect (up to ~5 s).
-2. Calls `GetProjectCount()` — may block **~5 s** while project/scene lists download.
-3. Loads stored indices from `ProjectStore` / `SceneStore`.
-4. Updates the scene label and **recalls** the stored scene to the desk.
+1. Calls `GetProjectCount()` — may pause briefly while project/scene lists download.
+2. Loads stored indices from `ProjectStore` / `SceneStore`.
+3. Updates the scene label and **recalls** the stored scene to the desk.
 
-GP may appear frozen briefly; this is expected once per rackspace load.
+This needs **`SetTimersRunning(true)`** (the script calls it in `Initialization`). If you
+also poll meters in the same rackspace, the shared `On TimerTick` is fine.
 
 ## Variations
 
@@ -93,7 +124,8 @@ Save the gig file to persist variation selections.
 | `(no project)` / count 0 | Connected? Wait for catalog load; see `extension.log` |
 | Picker widgets visible at start | Script `Initialization` calls `SetPickerVisible(False)` |
 | Variation does not stick | Store knobs must not use **Ignore variations** |
-| Script compile errors on widget names | Panel template GPScript names must match exactly |
+| Script compile errors on widget names | Widget handles in Advanced tab must match exactly |
+| GP crash on “New panel → PreSonus Scene Picker” | Template is disabled (`GetPanelCount=0`); build panel manually |
 
 ## Related APIs
 

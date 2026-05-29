@@ -1,28 +1,110 @@
 #include "panels/ScenePickerPanel.h"
 
-#include <fstream>
-#include <sstream>
-
 namespace presonus::studiolive::gpext::panels
 {
 
-std::string scenePickerPanelXml(const std::string &extensionDirectory)
+namespace
 {
-    const auto path = extensionDirectory + "/" + kScenePickerUserPanelFile;
-    std::ifstream input(path, std::ios::binary);
-    if (!input)
-    {
-        return scenePickerDefaultPanelXml();
-    }
 
-    std::ostringstream buffer;
-    buffer << input.rdbuf();
-    const std::string text = buffer.str();
-    if (text.empty())
-    {
-        return scenePickerDefaultPanelXml();
-    }
-    return text;
+// Verbatim gp-radiobuttons "Radio Buttons x 2" embedded panel (Panels.h panelXML[0]).
+// Proven to insert safely on GP 5.x; scene-picker widgets are added manually in GP
+// until we can derive a crash-free custom template.
+const char kEmbeddedPanelXml[] =
+    "<RACKUNIT size=\"10\" style=\"0\" color=\"ff000000\" ver=\"4.099999904632568\">"
+    "  <WIDGET type=\"5\" style=\"0\" x=\"0.1535769828926905\" y=\"0.5294117647058824\""
+    "          width=\"0.1298600311041991\" height=\"0.7058823529411765\" caption=\"\""
+    "          captionIncludesAttribute=\"0\" hideTemporaryValueDisplay=\"1\" hideInPresentationView=\"0\""
+    "          overrideName=\"1\" captionVisible=\"0\" captionHeight=\"0.1655629139072848\""
+    "          reflectMIDI=\"\" reflectMIDIOn=\"0\" midiThru=\"0\" midiSource=\"\" midiDevice=\"\""
+    "          midiData=\"0\" rigId=\"0\" widgetValue=\"1.0\" backPlate=\"10\" backPlateVisible=\"1\""
+    "          invertMIDI=\"0\" displayRange=\"0\" ignoresVariations=\"0\" followHardware=\"0\""
+    "          relativeMode=\"0\" enableDirectedOSC=\"0\" directedOSCAddressPattern=\"\""
+    "          directedOSCIPAddress=\"\" directedOSCPort=\"9001\" directedOSCTargetName=\"\""
+    "          widgetDirectedOSCType=\"0\" widgetDirectedMinIntValue=\"0\" widgetDirectedMaxIntValue=\"127\""
+    "          widgetDirectedMinDoubleValue=\"0.0\" widgetDirectedMaxDoubleValue=\"1.0\""
+    "          widgetDirectedStringListValue=\"\" widgetHandle=\"\" enableOSC=\"0\""
+    "          invertOSC=\"0\" groupName=\"\" widgetMoveBehavior=\"0\" updateOnLoadGig=\"0\""
+    "          updateOnActivateRackspace=\"0\" setDefaultDoubleClickResetValue=\"0.0\""
+    "          bckgColor=\"3f636363\" outlineColor=\"fff5f5f5\" outlineRound=\"5\""
+    "          outlineThick=\"1\">"
+    "      </WIDGET>"
+    "  <WIDGET type=\"3\" style=\"0\" x=\"0.1255832037325039\" y=\"0.6402714932126696\""
+    "          width=\"0.03965785381026438\" height=\"0.3393665158371041\" caption=\"1\""
+    "          captionIncludesAttribute=\"0\" hideTemporaryValueDisplay=\"1\" hideInPresentationView=\"0\""
+    "          overrideName=\"1\" captionVisible=\"1\" captionHeight=\"0.3194444444444444\""
+    "          reflectMIDI=\"\" reflectMIDIOn=\"0\" midiThru=\"0\" midiSource=\"\" midiDevice=\"\""
+    "          midiData=\"0\" rigId=\"0\" widgetValue=\"1.0\" backPlate=\"11\" backPlateVisible=\"1\""
+    "          invertMIDI=\"0\" displayRange=\"0\" ignoresVariations=\"0\" followHardware=\"0\""
+    "          relativeMode=\"0\" enableDirectedOSC=\"0\" directedOSCAddressPattern=\"\""
+    "          directedOSCIPAddress=\"\" directedOSCPort=\"9001\" directedOSCTargetName=\"\""
+    "          widgetDirectedOSCType=\"0\" widgetDirectedMinIntValue=\"0\" widgetDirectedMaxIntValue=\"127\""
+    "          widgetDirectedMinDoubleValue=\"0.0\" widgetDirectedMaxDoubleValue=\"1.0\""
+    "          widgetDirectedStringListValue=\"\" widgetHandle=\"RADIO_1_1\" enableOSC=\"0\""
+    "          invertOSC=\"0\" groupName=\"\" widgetMoveBehavior=\"0\" updateOnLoadGig=\"0\""
+    "          updateOnActivateRackspace=\"0\" setDefaultDoubleClickResetValue=\"0.0\""
+    "          bckgColor=\"ff3c3c3c\" outlineColor=\"ff808080\" outlineRound=\"4\""
+    "          outlineThick=\"2\" btnMomToLatch=\"0\" btnPadLike=\"0\">"
+    "  </WIDGET>"
+    "  <WIDGET type=\"3\" style=\"0\" x=\"0.1761275272161742\" y=\"0.6402714932126696\""
+    "          width=\"0.03965785381026438\" height=\"0.3393665158371041\" caption=\"2\""
+    "          captionIncludesAttribute=\"0\" hideTemporaryValueDisplay=\"1\" hideInPresentationView=\"0\""
+    "          overrideName=\"1\" captionVisible=\"1\" captionHeight=\"0.3194444444444444\""
+    "          reflectMIDI=\"\" reflectMIDIOn=\"0\" midiThru=\"0\" midiSource=\"\" midiDevice=\"\""
+    "          midiData=\"0\" rigId=\"0\" backPlate=\"11\" backPlateVisible=\"1\" invertMIDI=\"0\""
+    "          displayRange=\"0\" ignoresVariations=\"0\" followHardware=\"0\" relativeMode=\"0\""
+    "          enableDirectedOSC=\"0\" directedOSCAddressPattern=\"\" directedOSCIPAddress=\"\""
+    "          directedOSCPort=\"9001\" directedOSCTargetName=\"\" widgetDirectedOSCType=\"0\""
+    "          widgetDirectedMinIntValue=\"0\" widgetDirectedMaxIntValue=\"127\""
+    "          widgetDirectedMinDoubleValue=\"0.0\" widgetDirectedMaxDoubleValue=\"1.0\""
+    "          widgetDirectedStringListValue=\"\" widgetHandle=\"RADIO_1_2\" enableOSC=\"0\""
+    "          invertOSC=\"0\" groupName=\"\" widgetMoveBehavior=\"0\" updateOnLoadGig=\"0\""
+    "          updateOnActivateRackspace=\"0\" setDefaultDoubleClickResetValue=\"0.0\""
+    "          bckgColor=\"ff3c3c3c\" outlineColor=\"ff808080\" outlineRound=\"4\""
+    "          outlineThick=\"2\" btnMomToLatch=\"0\" btnPadLike=\"0\">"
+    "  </WIDGET>"
+    "  <WIDGET type=\"4\" style=\"0\" x=\"0.5042768273716952\" y=\"0.5429864253393665\""
+    "          width=\"0.4175738724727838\" height=\"0.7239819004524887\" caption=\"Additional radio buttons can be added (up to 16) by entering a name for any new widget in the widget settings Advanced tab, in the format: RADIO_1_3 - where the first number is the radio button group, and the second number is the unique button number.\""
+    "          captionIncludesAttribute=\"0\" hideTemporaryValueDisplay=\"1\" hideInPresentationView=\"1\""
+    "          overrideName=\"1\" captionVisible=\"0\" captionHeight=\"0.06451612903225806\""
+    "          reflectMIDI=\"\" reflectMIDIOn=\"0\" midiThru=\"0\" midiSource=\"\" midiDevice=\"\""
+    "          midiData=\"0\" rigId=\"0\" widgetValue=\"1.0\" backPlate=\"10\" backPlateVisible=\"0\""
+    "          invertMIDI=\"0\" displayRange=\"0\" ignoresVariations=\"0\" followHardware=\"0\""
+    "          relativeMode=\"0\" enableDirectedOSC=\"0\" directedOSCAddressPattern=\"\""
+    "          directedOSCIPAddress=\"\" directedOSCPort=\"9001\" directedOSCTargetName=\"\""
+    "          widgetDirectedOSCType=\"0\" widgetDirectedMinIntValue=\"0\" widgetDirectedMaxIntValue=\"127\""
+    "          widgetDirectedMinDoubleValue=\"0.0\" widgetDirectedMaxDoubleValue=\"1.0\""
+    "          widgetDirectedStringListValue=\"\" widgetHandle=\"\" enableOSC=\"0\""
+    "          invertOSC=\"0\" groupName=\"\" widgetMoveBehavior=\"0\" updateOnLoadGig=\"0\""
+    "          updateOnActivateRackspace=\"0\" setDefaultDoubleClickResetValue=\"0.0\""
+    "          bckgColor=\"ff3c3c3c\" outlineColor=\"ff808080\" outlineRound=\"4\""
+    "          outlineThick=\"2\" fontSize=\"22.0\" textPos=\"36\" textColor=\"ffffffff\""
+    "          usesDimming=\"1.0\">"
+    "  </WIDGET>"
+    "  <WIDGET type=\"4\" style=\"0\" x=\"0.1542857142857143\" y=\"0.3009478672985782\""
+    "          width=\"0.1322448979591837\" height=\"0.2417061611374408\" caption=\"Radio Buttons\""
+    "          captionIncludesAttribute=\"0\" hideTemporaryValueDisplay=\"1\" hideInPresentationView=\"0\""
+    "          overrideName=\"1\" captionVisible=\"0\" captionHeight=\"0.196078431372549\""
+    "          reflectMIDI=\"\" reflectMIDIOn=\"0\" midiThru=\"0\" midiSource=\"\" midiDevice=\"\""
+    "          midiData=\"0\" rigId=\"0\" widgetValue=\"1.0\" backPlate=\"10\" backPlateVisible=\"0\""
+    "          invertMIDI=\"0\" displayRange=\"0\" ignoresVariations=\"0\" followHardware=\"0\""
+    "          relativeMode=\"0\" enableDirectedOSC=\"0\" directedOSCAddressPattern=\"\""
+    "          directedOSCIPAddress=\"\" directedOSCPort=\"9001\" directedOSCTargetName=\"\""
+    "          widgetDirectedOSCType=\"0\" widgetDirectedMinIntValue=\"0\" widgetDirectedMaxIntValue=\"127\""
+    "          widgetDirectedMinDoubleValue=\"0.0\" widgetDirectedMaxDoubleValue=\"1.0\""
+    "          widgetDirectedStringListValue=\"\" widgetHandle=\"\" enableOSC=\"0\""
+    "          invertOSC=\"0\" groupName=\"\" widgetMoveBehavior=\"0\" updateOnLoadGig=\"0\""
+    "          updateOnActivateRackspace=\"0\" setDefaultDoubleClickResetValue=\"0.0\""
+    "          bckgColor=\"ff3c3c3c\" outlineColor=\"ff808080\" outlineRound=\"4\""
+    "          outlineThick=\"2\" fontSize=\"24.0\" textPos=\"36\" textColor=\"ffffffff\""
+    "          usesDimming=\"1.0\">"
+    "  </WIDGET>"
+    "</RACKUNIT>";
+
+} // namespace
+
+std::string scenePickerPanelXml(const std::string & /*extensionFolder*/)
+{
+    return kEmbeddedPanelXml;
 }
 
 } // namespace presonus::studiolive::gpext::panels

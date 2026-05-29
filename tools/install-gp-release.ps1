@@ -38,3 +38,11 @@ $dest = Join-Path $destDir "PreSonusStudioLive.dll"
 Copy-Item -Force $dll $dest
 Write-Host "Installed: $dest"
 Get-Item $dest | Format-List FullName, Length, LastWriteTime
+
+# Remove any external panel override — it bypasses the embedded template and has
+# caused blank panels (UTF-8 BOM) and GP crashes (knob GPSCALE clones).
+$panelOverride = Join-Path $destDir "PreSonusScenePicker.gppanel"
+if (Test-Path $panelOverride) {
+    Remove-Item -Force $panelOverride
+    Write-Host "Removed panel override: $panelOverride"
+}
