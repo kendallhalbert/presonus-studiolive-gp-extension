@@ -60,7 +60,7 @@ will be copied/symlinked there so it sits next to the implementation.
 
 ## Current status (resumption bookmark)
 
-**Last updated: 2026-05-25 (scene picker panel landed locally; push pending hardware smoke)**
+**Last updated: 2026-05-25 (`main` @ `884068e`, pushed; scene picker awaiting hardware smoke on 32R)**
 
 ### TL;DR
 
@@ -193,9 +193,10 @@ probe, `snapshot-state.json`, and `session.jsonl`.
 **C++ repo** (`presonus-studiolive-gp-extension`):
 
 ```
-Branch:  main (ahead of origin/main — scene picker push pending)
+Branch:  main (in sync with origin/main)
 Remote:  https://github.com/kendallhalbert/presonus-studiolive-gp-extension.git
-HEAD:    56c6232 — Scene picker panel: GetPanelXML, display-name APIs, GPScript + docs
+HEAD:    884068e — Update resumption bookmark HEAD after scene picker commit
+Release: v1.0.0 tagged + published on GitHub (scene picker is post-v1.0.0; no v1.0.1 tag yet)
 Tests:   85/85 green (Release `build-rel/`)
 Desk:    StudioLive 32R @ 10.0.0.14 (serial RA3E18090022), GP 5 Pro, SDK beta-sdk-v62
 Smoke:   §1–§15 hardware-verified; scene picker panel **not yet hardware-tested**
@@ -233,7 +234,7 @@ Branch: beta-sdk-v62  (GPSDK_VERSION 62 — required for GP 5)
 
 | Blocker | Owner | Notes |
 | ------- | ----- | ----- |
-| Scene picker panel hardware smoke | User | Install new DLL; **New panel → PreSonus Scene Picker**; paste `scene-picker-collapsed.gpscript` |
+| Scene picker panel hardware smoke | User | Install new DLL; **New panel → PreSonus Scene Picker**; paste `scene-picker-collapsed.gpscript`. Runbook: `docs/HARDWARE_SMOKE_TEST.md` §16 + `docs/panels/SCENE_PICKER_SETUP.md` |
 | Discovery fixture gap | Low | Capture skipped `01-discovery-broadcast`; §11 verified live on LAN instead |
 | Meter fixture gap | Low | Capture skipped `18-meter-levl-frame`; §15 verified live (~217 B frames on 32R) |
 

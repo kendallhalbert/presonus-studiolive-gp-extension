@@ -664,3 +664,35 @@ End
    - if you see `Meter UDP ignored` instead, capture that line — wrong packet shape
 5. Allow **inbound UDP 52704** in Windows Firewall from the mixer subnet (`10.0.0.14`).
 6. Close **UC Surface** if it holds the meter port, then reconnect and `SubscribeMeters()` again.
+
+## 16. Scene picker panel
+
+**Status:** **not yet hardware-tested** (code landed 2026-05-25). Full setup runbook: `docs/panels/SCENE_PICKER_SETUP.md`.
+
+Collapsed rackspace strip (friendly scene label + **Select**) → project/scene browser → **Recall** / **Done**. Each rack **variation** stores its own selection and auto-recalls on variation change.
+
+### Setup
+
+1. Install the Release DLL (`.\tools\install-gp-release.ps1`), then **Options → Reload Third Party Libraries**.
+2. Ensure **auto-connect** is configured (saved mixer in `%APPDATA%\PreSonusStudioLive\config.json`) so the panel connects without a `Connect` call.
+3. Rackspace **Panels** view → **Edit** → **New panel → PreSonus Scene Picker**.
+4. **Window → Show Rackspace Script Editor**, paste `docs/panels/scene-picker-collapsed.gpscript`, save the gig.
+
+### Checklist
+
+| Step | Pass? | Notes |
+| ---- | ----- | ----- |
+| Load gig | | Strip shows friendly scene name; desk recalls stored scene |
+| **Select** opens picker | | Picker widgets appear; collapsed strip hidden |
+| Browse ◀ ▶ + **Recall** | | Desk scene changes; strip label updates; picker closes |
+| **Done** after browsing | | Picker closes; desk unchanged since last recall |
+| Variation A → B | | Label + desk follow each variation's stored scene (auto-recall) |
+| Save + reload gig | | Each variation retains its scene selection |
+
+### If it misbehaves
+
+1. `(not connected)` on the strip — confirm mixer powered, auto-connect config present, firewall allows TCP 53000.
+2. `(no project)` / count 0 — wait for the project/scene catalog to download (first `GetProjectCount()` can block ~5 s); check `extension.log`.
+3. Picker widgets visible at startup — `Initialization` must call `SetPickerVisible(False)`.
+4. Variation selection not sticking — `ProjectStore` / `SceneStore` knobs must have **Ignore variations = OFF**.
+5. Script compile errors — widget GPScript names must match the template exactly (see `SCENE_PICKER_SETUP.md` § "Widget GPScript names").
